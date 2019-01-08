@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.academic.dao.EduCourseDao">
+
+    <!-- 首页-学业特征获取选课人次 -->
+    <select id="getCoursePeopleTimes" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        count(*) AS courseNum
+        FROM edu_grade_filter_r ec
+        WHERE 1=1
+        <include refid="Base_where_List_filter_r"/>
+    </select>
+
+    <!-- 2017-11-2 按学期统计重修人数，以及重修通过率-->
+    <select id="retakeCoursesTop" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        r.rownum3,
+        r.term_num,
+        r.course_name,
+        r.num,
+        r.course_no,
+        r.ratio
+        FROM
+        (SELECT
+        if(@grde_level3 = A.term_num , @rownum3:=@rownum3+1, @rownum3:=1) AS rownum3,
+        @grde_level3:=A.term_num AS term_num,
+        A.course_name,
+        A.num,
+        A.course_no,
+        A.ratio
+        FROM
+        (SELECT
+        ec.term_num,
+        ec.course_name,
+        count(*) AS num,
+        ec.course_no,
+        ROUND((count(case when ec.point>0 then 1 end)/count(*))*100,2) as ratio
+        FROM edu_grade_filter_r ec
+        WHERE ec.exam_natures = "重修一" AND ec.term_num IS NOT NULL
+        <include refid="Base_where_List_filter_r"/>
+        GROUP BY ec.term_num, ec.course_no
+        ORDER BY ec.term_num ASC, num DESC, ec.course_no
+        ) A,
+        (SELECT @rownum3:=0,@grde_level3:=null) B
+        )r
+        WHERE r.rownum3 &lt; 11;
+    </select>
+
+    <!-- 根据学期获取重修课程信息（对应重修课程人数最多的TOP10）ysx -->
+    <select id="listRetakeCourses" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        course_name,
+        num,
+        CONCAT(passCourse, ':', failCourse) AS passRatio,
+        ratio
+        FROM
+        (
+        SELECT
+        ec.course_name,
+        count(*) AS num,
+        ec.course_no,
+        ROUND(
+        (
+        count(CASE WHEN ec.point > 0 THEN 1 END) / count(*)
+        ) * 100,
+        2
+        ) AS ratio,
+        count(CASE WHEN ec.point > 0 THEN 1 END) AS passCourse,
+        count(CASE WHEN ec.point = 0 THEN 1 END) AS failCourse
+        FROM
+        edu_grade_filter_r_nodistinct ec
+        WHERE
+        ec.exam_natures = "重修一"
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        ec.course_name
+        ORDER BY
+        num DESC,
+        ec.course_no
+        LIMIT 10
+        ) aa
+        ORDER BY
+        num DESC,
+        course_no
+    </select>
+
+    <select id="getRetakeStudentList" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        a.course_name,t.outid,t.`name`,
+        case
+        when a.point <![CDATA[ >= ]]>1 then '是'
+        when a.point <![CDATA[ < ]]> 1 then '否'
+        END as isPass
+        ,a.score
+        FROM
+        (SELECT
+        ec.outid,ec.course_name,ec.point,ec.score
+        FROM
+        edu_grade_filter_r_nodistinct ec
+        WHERE
+        ec.exam_natures = "重修一" and ec.course_name=#{courseName}
+        <include refid="Base_where_List_r"/>
+
+        ) a INNER JOIN own_org_student_type t
+        WHERE a.outid = t.outid
+    </select>
+    <!-- 查询哪几个学期有重修课程 -->
+    <select id="listTerms" resultType="java.lang.Integer" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        ec.term_num
+        FROM edu_grade_filter_r ec
+        WHERE ec.exam_natures = "重修一"
+        <include refid="Base_where_List_filter_r"/>
+        GROUP BY ec.term_num
+        ORDER BY ec.term_num
+
+    </select>
+
+    <!--成绩提高分析 begin-->
+    <!--成绩提高分析  2、选课-->
+    <select id="getElective4Analysis" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        sum(ec.course_num) AS num,
+        round(sum(rct.total_credit_point)/sum(rct.total_credit),2) AS avg_credit_point
+        FROM
+        <include refid="Base_where_List_semester"/>
+        JOIN r_course ec ON rct.outid=ec.outid
+        JOIN own_school_org oso ON oso.class_code = ec.class_name
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY ec.outid
+        HAVING sum(rct.total_credit)>0
+        ;
+    </select>
+
+    <sql id="Base_where_List_semester">
+        <choose>
+            <when test="semester != null and semester!=''">
+                r_credit_semester rct
+            </when>
+            <otherwise>
+                r_credit_distinct rct
+            </otherwise>
+        </choose>
+    </sql>
+
+    <select id="getElectiveCategory4Analysis" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        ec.course_category,
+        round(sum(ec.course_num)*100/sum(ec.total_num)) as proportion,
+        round(sum(rct.total_credit_point)/sum(rct.total_credit),2) AS avg_credit_point
+        FROM
+        <include refid="Base_where_List_semester"/>
+        JOIN r_course ec ON rct.outid = ec.outid
+        JOIN own_school_org oso ON oso.class_code = ec.class_name
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY ec.outid, ec.course_category
+        HAVING sum(rct.total_credit)>0 AND sum(ec.total_num)>0
+        ;
+    </select>
+
+    <!--排序条件 -->
+    <sql id="Base_Order">
+        <if test="sort ==null and order==null">
+            ORDER BY ec.class_code DESC,ec.outid
+        </if>
+        <if test="sort ==null and order!=null">
+            ORDER BY ec.class_code DESC,ec.outid
+        </if>
+        <if test="sort !=null and order==null">
+            ORDER BY ${sort}
+        </if>
+        <if test="sort !=null and order!=null">
+            ORDER BY ${sort} ${order}
+        </if>
+    </sql>
+
+    <!--分页条件 -->
+    <sql id="Paging">
+        <!-- 分页最好统一：bootstrap-table分页和自己的ajax请求的分页采用一样的参数 -->
+        <!-- <if test="pageNumber!=null"> limit #{pageNum} ,#{pageSize} </if> -->
+
+        <!-- bootstrap table 分页 -->
+        <if test="start!=null">
+            limit #{start,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+        <!-- <if test="id != null"> and oso.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and oso.outid = #{outid,jdbcType=VARCHAR}, </if> <if
+            test="sex != null"> and oso.sex = #{sex,jdbcType=VARCHAR}, </if> -->
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and oso.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and oso.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and oso.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and oso.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <if test="semester != null">
+            and ec.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+        <if test="outid != null">
+            and ec.outid = #{outid, jdbcType=VARCHAR}
+        </if>
+        <!-- 判断是否有奖学金 -->
+        <if test="scholarship != null">
+            and ec.outid IN
+            (SELECT es.outid
+            FROM edu_scholarship es
+            )
+        </if>
+        <!--贫困生判断-->
+        <if test="impoverish != null">
+            and ec.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+    </sql>
+
+    <!--ysx 2017-10-13新增过滤表 edu_course_filter_r -->
+    <sql id="Base_where_List_filter_r">
+        <if test="courseProperties != null and courseProperties != 0 ">
+            and ec.course_properties_new = #{courseProperties,jdbcType=VARCHAR}
+        </if>
+        <if test="courseCategory != null">
+            and ec.course_category = #{courseCategory,jdbcType=VARCHAR}
+        </if>
+        <if test="courseNatures != null">
+            and ec.course_natures = #{courseNatures,jdbcType=VARCHAR}
+        </if>
+        <if test="politicalCode != null">
+            <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+            and ec.outid in (
+            select outid from own_org_student_type
+            where political_code_all=#{politicalCode}
+            )
+        </if>
+
+        <if test="semester != null">
+            and ec.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+
+        <!-- 学期 -->
+        <if test="termNum != null">
+            and ec.term_num = #{termNum,jdbcType=INTEGER}
+        </if>
+
+
+        <!-- 学籍状态 -->
+        <if test="eduStatus != null">
+            and ec.outid in (
+            SELECT outid FROM own_org_student_type
+            WHERE
+            edu_status like concat(concat('%',#{eduStatus}),'%')
+            )
+        </if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and ec.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and ec.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and ec.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 判断是否有奖学金 -->
+        <if test="scholarship != null">
+            and ec.outid IN
+            (SELECT outid
+            FROM edu_scholarship
+            )
+        </if>
+        <!--贫困生判断-->
+        <if test="impoverish != null">
+            and ec.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and ec.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <if test="sex != null">and ec.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 学号：： -->
+        <if test="name != null and name !=''">
+            and ec.name like concat("%",#{name},"%")
+        </if>
+        <if test="outid != null and outid !=''">
+            and ec.outid like "${outid}%"
+        </if>
+        <!-- 入学年份 -->
+        <if test="enrollmentYear != null">
+            and ec.enrollment_year = #{enrollmentYear,jdbcType=VARCHAR}
+        </if>
+    </sql>
+
+    <!-- 这个查询条件和Base_where_List_filter_r的区别就是学期字段，这里用的是termNumAcademic，是为了和自定义的学期字段区分开。但数据库是同一个字段 -->
+    <sql id="Base_where_List_r">
+        <if test="courseProperties != null and courseProperties != 0 ">
+            and ec.course_properties_new = #{courseProperties,jdbcType=VARCHAR}
+        </if>
+        <if test="courseCategory != null">
+            and ec.course_category = #{courseCategory,jdbcType=VARCHAR}
+        </if>
+        <if test="courseNatures != null">
+            and ec.course_natures = #{courseNatures,jdbcType=VARCHAR}
+        </if>
+        <if test="politicalCode != null">
+            <if test="termNum == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and ec.outid in (
+                select outid from own_org_student_type
+                where political_code_all=#{politicalCode}
+                )
+            </if>
+            <if test="termNum != null">
+                and ec.political_code =#{politicalCode}
+            </if>
+        </if>
+
+        <if test="semesterArr != null and semesterArr.length > 0">
+            and ec.semester IN
+            <foreach collection="semesterArr" item="semester" open="(" close=")" separator=",">
+                #{semester}
+            </foreach>
+        </if>
+
+        <!-- 学期 -->
+        <if test="termNumAcademic != null">
+            and ec.term_num = #{termNumAcademic,jdbcType=INTEGER}
+        </if>
+
+        <!-- 入学年份 -->
+        <if test="enrollmentYear != null">
+            and ec.enrollment_year = #{enrollmentYear,jdbcType=VARCHAR}
+        </if>
+
+        <!-- 学籍状态 -->
+        <if test="eduStatus != null">
+            and ec.outid in (
+            SELECT outid FROM own_org_student_type
+            WHERE
+            edu_status like concat(concat('%',#{eduStatus}),'%')
+            )
+        </if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and ec.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and ec.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and ec.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 判断是否有奖学金 -->
+        <if test="scholarship != null">
+            and ec.outid IN
+            (SELECT outid
+            FROM edu_scholarship
+            )
+        </if>
+        <!--贫困生判断-->
+        <if test="impoverish != null">
+            and ec.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and ec.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学号：： -->
+        <if test="name != null and name !=''">
+            and ec.name like concat("%",#{name},"%")
+        </if>
+        <if test="outid != null and outid !=''">
+            and ec.outid like "${outid}%"
+        </if>
+        <if test="sex !=null and sex !='' ">
+            AND ec.sex =#{sex}
+        </if>
+    </sql>
+
+    <resultMap id="BaseResultMap" type="com.ziyun.academic.entity.EduCourse">
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="class_name" property="className" jdbcType="VARCHAR"/>
+        <result column="course_no" property="courseNo" jdbcType="VARCHAR"/>
+        <result column="course_sqe" property="courseSqe" jdbcType="INTEGER"/>
+        <result column="course_name" property="courseName" jdbcType="VARCHAR"/>
+        <result column="teacher" property="teacher" jdbcType="VARCHAR"/>
+        <result column="pitch_level" property="pitchLevel" jdbcType="VARCHAR"/>
+        <result column="schoolroom" property="schoolroom" jdbcType="VARCHAR"/>
+        <result column="is_rebuild" property="isRebuild" jdbcType="VARCHAR"/>
+        <result column="campus" property="campus" jdbcType="VARCHAR"/>
+        <result column="alternative_no" property="alternativeNo" jdbcType="VARCHAR"/>
+        <result column="may_delete" property="mayDelete" jdbcType="VARCHAR"/>
+    </resultMap>
+
+</mapper>

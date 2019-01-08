@@ -1,0 +1,196 @@
+spring:
+  profiles:
+    active: test # 环境切换
+  application:
+    name: report-service
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+mybatis:
+  ## 实体类路径
+  typeAliasesPackage: com.ziyun.report.model
+  ## mapping文件路径
+  mapperLocations: classpath:mapper/*.xml
+  ## 配置文件路径
+  configLocation: classpath:mybatis-config.xml
+# 日志配置
+logging:
+  path: /var/log/ms-module
+  file: ${spring.application.name}.log
+  level:
+       com.ziyun.report: debug
+
+---
+
+# 测试环境
+server:
+  port: 7018
+  max-http-header-size: 40960
+spring:
+  profiles: test
+  datasource:
+#  mysql数据源
+            mysql:
+                 name: mysqlDataSource
+                 url: jdbc:mysql://192.168.101.218:3306/datacenter_v2?autoReconnect=true&autoReconnectForPools=true&useUnicode=true&characterEncoding=UTF-8
+                 username: app
+                 password: ZFRwjk2RPNxD346z
+                 driver-class-name: com.mysql.jdbc.Driver
+                 testOnBorrow: true
+                 validationQuery: select 1
+#kylin数据源
+            kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://192.168.101.216:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 1
+    ## 主机
+    host: 192.168.101.212
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password: NaRT9gnxMKZ6MqA2
+    ## 连接超时时间（毫秒）
+    timeout: 100000
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    serviceUrl:
+      defaultZone: http://192.168.101.211:8606/eureka/
+front:
+   signUrl: http://192.168.100.101:8088/
+# swagger 配置
+swagger:
+  show: true
+---
+
+# 开发环境
+server:
+  port: 7018
+  max-http-header-size: 40960
+spring:
+  profiles: dev
+  datasource:
+#  mysql数据源
+            mysql:
+                 name: mysqlDataSource
+                 url: jdbc:mysql://192.168.101.217:3306/datacenter?autoReconnect=true&autoReconnectForPools=true&useUnicode=true&characterEncoding=UTF-8
+                 username: dev
+                 password: lJZx2Ik5eqX3xBDp
+                 driver-class-name: com.mysql.jdbc.Driver
+                 testOnBorrow: true
+                 validationQuery: select 1
+#kylin数据源
+            kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://192.168.101.216:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 1
+    ## 主机
+    host: 192.168.101.212
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password: NaRT9gnxMKZ6MqA2
+    ## 连接超时时间（毫秒）
+    timeout: 100000
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8606/eureka/
+    register-with-eureka: false
+    fetch-registry: false
+front:
+   signUrl: http://192.168.100.101:8088/
+
+# swagger 配置
+swagger:
+  show: true
+
+---
+
+# 生产环境
+server:
+  port: 7003
+  max-http-header-size: 40960
+spring:
+  profiles: prod
+  datasource:
+    #  mysql数据源
+                mysql:
+                     name: mysqlDataSource
+                     url: jdbc:mysql://10.130.254.13:3306/datacenter?autoReconnect=true&autoReconnectForPools=true&useUnicode=true&characterEncoding=UTF-8
+                     username: app
+                     password: JxITHCAF4r5lHrgJ
+                     driver-class-name: com.mysql.jdbc.Driver
+                     testOnBorrow: true
+                     validationQuery: select 1
+    #kylin数据源
+                kylin:
+                    name: kylinDataSource
+                    url: jdbc:kylin://10.130.254.20:7070/jkd
+                    username: admin
+                    password: KYLIN
+                    driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 1
+    ## 主机
+    host: 10.130.254.15
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password:
+    ## 连接超时时间（毫秒）
+    timeout: 100000
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    serviceUrl:
+      defaultZone: http://localhost:8601/eureka/
+front:
+   signUrl: http://10.130.254.15:7103/
+
+# swagger 配置
+swagger:
+ show: false

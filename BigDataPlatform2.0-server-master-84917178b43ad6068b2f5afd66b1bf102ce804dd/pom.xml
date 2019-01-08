@@ -1,0 +1,60 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.ziyun</groupId>
+	<artifactId>ziyun</artifactId>
+	<version>1.0.1</version>
+	<packaging>pom</packaging>
+	<name>com.ziyun</name>
+	<description>com.ziyun</description>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>Central</id>
+			<url>http://192.168.101.211:8081/nexus/content/repositories/central/</url>
+		</repository>
+		<repository>
+			<id>3rd party</id>
+			<url>http://192.168.101.211:8081/nexus/content/repositories/thirdparty/</url>
+		</repository>
+		<repository>
+			<id>tiny</id>
+			<url>http://nexus.tinygroup.org/repository/tiny-all-public/</url>
+		</repository>
+	</repositories>
+
+	<!--
+    本地仓库 的更新
+    mvn  clean package install
+
+    远程 仓库 的更新
+    mvn clean package deploy
+     -->
+	<distributionManagement>
+		<repository>
+			<id>thirdparty</id>
+			<name>3rd party</name>
+			<url>http://192.168.101.211:8081/nexus/content/repositories/thirdparty/</url>
+		</repository>
+	</distributionManagement>
+
+	<modules>
+		<module>bd-common</module>
+		<module>bd-modules</module>
+		<module>bd-sc</module>
+	</modules>
+
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+			</plugin>
+		</plugins>
+
+	</build>
+</project>

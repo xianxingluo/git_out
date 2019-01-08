@@ -1,0 +1,1993 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.academic.dao.EduGradeDao">
+
+    <!-- v2.0 按课程属性分组(必修，选修，必修&选修),统计各属性课程数量 -->
+    <select id="getCourseProperties" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        case
+        when eg.course_properties_new = '1' then '必修'
+        when eg.course_properties_new = '2' then '选修'
+        when eg.course_properties_new = '3' then '同属必修选修'
+        end as course_properties,COUNT(DISTINCT course_no) as num
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE
+        eg.course_properties_new &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        course_properties_new;
+    </select>
+
+
+    <!-- 个人课程性质统计    课程性质统计规则：群体使用course_properties_new字段  个人使用course_properties-->
+    <select id="getCoursePropertiesStudent" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        course_properties_person as "course_properties",
+        COUNT( eg.outid) AS num
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE
+        eg.exam_natures IS NOT NULL
+        AND eg.is_grade_exam = 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        course_properties_person
+    </select>
+    <!-- v2.0 按课程属性（必修、选修） 列出所有课程的信息 -->
+    <select id="listCourseProperties" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT eg.course_no,eg.course_name,
+        case
+        when eg.course_properties_new = '1' then '必修'
+        when eg.course_properties_new = '2' then '选修'
+        when eg.course_properties_new = '3' then '同属必修选修'
+        end as course_properties_new,
+        count(DISTINCT eg.outid) as num,
+        CONCAT(
+        IFNULL(
+        ROUND(
+        sum(case when point>=1 and exam_natures='正常考试' then 1 else 0 end)
+        /
+        sum(case when 1=1 and exam_natures='正常考试' then 1 else 0 end)*100
+        ,2)
+        ,0),'%')as ratio
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE eg.course_properties_new &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        eg.course_no
+        <include refid="Paging"/>
+    </select>
+
+    <!-- v2.0 按课程属性 查询课程数量（分页的总条数）-->
+    <select id="getCoursePropertiesCount" resultType="java.lang.Integer" parameterType="com.ziyun.academic.vo.Params">
+        SELECT COUNT(DISTINCT eg.course_no) as total
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE eg.course_properties_new &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!-- v2.0 选课类型情况，按课程分类分组，按课程号去重统计所有的课程中各种课程分类的数量  -->
+    <select id="getCourseCategory" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        eg.course_category,
+        count(DISTINCT eg.course_no) AS num
+        FROM edu_grade_filter_r eg
+        WHERE 1=1 AND eg.course_category IS NOT NULL
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.course_category
+        ORDER BY num desc;
+    </select>
+
+    <select id="courseCategoryStudentList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        a.course_no,
+        a.course_name,
+        b.nums
+        FROM
+        (
+        SELECT
+        eg.course_no,
+        eg.course_name
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        is_grade_exam=0
+        <if test=" sql !=null and sql !='' ">
+            ${sql}
+        </if>
+        <!-- 判断courseNo 是否为空 不为空 则选课列表  可以根据课程编号，课程名模糊查询-->
+        <if test="courseNo !=null and courseNo !='' ">
+            AND ( (course_no LIKE CONCAT("%",#{courseNo},"%")) OR (course_name LIKE CONCAT("%",#{courseNo},"%")))
+        </if>
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        eg.course_no
+        ) a,
+        (
+        SELECT
+        course_no,
+        count( outid) AS nums
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        is_grade_exam = 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        course_no
+        ) b
+        WHERE
+        a.course_no = b.course_no
+
+        ORDER BY b.nums desc
+    </select>
+
+    <!-- v2.0 按课程分类， 列出所有课程的信息 -->
+    <select id="listCourseCategory" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT eg.course_no,eg.course_name,eg.course_category,count(DISTINCT eg.outid) as num,
+        CONCAT(
+        IFNULL(
+        ROUND(
+        sum(case when point>=1 and exam_natures='正常考试' then 1 else 0 end)
+        /
+        sum(case when 1=1 and exam_natures='正常考试' then 1 else 0 end)*100
+        ,2)
+        ,0),'%') as ratio
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE eg.course_category &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        eg.course_no
+        <include refid="Paging"/>
+    </select>
+
+    <!-- 按课程分类 查询课程数量（分页的总条数）-->
+    <select id="getCourseCategoryCount" resultType="java.lang.Integer" parameterType="com.ziyun.academic.vo.Params">
+        SELECT COUNT(DISTINCT eg.course_no) as total
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE eg.course_category &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!-- v2.0 不按班级分组，按课程性质分组，按课程号去重统计个性质课程的数量-->
+    <select id="getCourseNatures" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        eg.course_natures,
+        count(DISTINCT eg.course_no) AS num
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        1=1
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        eg.course_natures
+        ORDER BY
+        count(DISTINCT eg.course_no) desc;
+    </select>
+
+    <!-- v2.0按课程性质， 列出所有课程的信息 -->
+    <select id="listCourseNatures" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT eg.course_no,eg.course_name,eg.course_natures,count(DISTINCT eg.outid) as num,
+        CONCAT(
+        IFNULL(
+        ROUND(
+        sum(case when point>=1 and exam_natures='正常考试' then 1 else 0 end)
+        /
+        sum(case when 1=1 and exam_natures='正常考试' then 1 else 0 end)*100
+        ,2)
+        ,0),'%') as ratio
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE eg.course_natures &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        eg.course_no
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getCourseNaturesCount" resultType="java.lang.Integer" parameterType="com.ziyun.academic.vo.Params">
+        SELECT COUNT(DISTINCT eg.course_no) as total
+        FROM
+        `edu_grade_filter_r` eg
+        WHERE eg.course_natures &lt;&gt; ''
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!-- v2.0学分绩点统计 求每学期平均学分绩点 使用edu_grade_filter_r_semester ，该表已过滤好，按照每学期取最后一条数据-->
+    <select id="listScorePoint" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        eg.semester,
+        round(sum(eg.credit * eg.point)/sum(eg.credit), 2) AS avg_credit_point,
+        count(DISTINCT eg.course_no) AS course_num
+        <!-- -->
+        FROM edu_grade_filter_r_semester eg
+        WHERE 1=1
+        <!--  AND eg.term_num in ('1','2','3','4','5','6','7','8') -->
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- 体育课添加到平均学分绩点的统计-->
+        <!-- AND eg.course_name NOT IN ('体育1', '体育2', '体育3', '体育4') -->
+        AND substring(eg.course_no, 4, 1) &lt;&gt; "9"
+        AND eg.is_grade_exam = 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.semester
+        ORDER BY eg.semester;
+    </select>
+
+    <!-- v2.0成绩合格率,计算正常考试通过的课程/正常考试的所有课程 -->
+    <select id="getPassRatios" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        round(a.onepass*100/b.times,2) AS ratio,
+        a.onepass AS passNum,
+        b.times AS allNum
+        FROM
+        (SELECT
+        count(*) AS onepass
+        FROM edu_grade_filter_r_nodistinct eg
+        WHERE eg.exam_natures='正常考试'
+        AND eg.course_properties IS NOT NULL
+        AND eg.point>=1
+        AND eg.is_grade_exam = 0
+        <include refid="Base_where_List_r"/>
+        ) AS a,
+        (SELECT
+        count(*) AS times
+        FROM edu_grade_filter_r_nodistinct eg
+        WHERE eg.course_properties IS NOT NULL
+        and eg.exam_natures='正常考试'
+        <!-- 分母去掉正常考试情况，由于在原始表 edu_grade 过滤到 edu_grade_filter_r 表中去掉了考试过程结果，只保留最终结果-->
+        <!-- AND eg.exam_natures='正常考试' -->
+        AND eg.is_grade_exam = 0
+        <include refid="Base_where_List_r"/>
+        ) AS b
+        WHERE b.times>0
+    </select>
+
+    <!-- v2.0挂科统计 不按学期统计 （ 没有挂科的人数、 有挂科的人数（挂科1门、挂科2门、挂科3门、挂科…门 ）-->
+    <select id="listExamFailCount" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        fail_course_num,
+        count(outid) AS num
+        FROM
+        (
+        SELECT
+        count(outid) AS fail_course_num,
+        outid
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        1 = 1
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) aa
+        WHERE
+        aa.point = 0
+        GROUP BY
+        outid
+        ) bb
+        GROUP BY
+        fail_course_num
+        ORDER BY
+        fail_course_num
+    </select>
+    <!--挂科统计，挂科为0门的情况-->
+    <select id="noExamFailCount" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="java.util.Map">
+        SELECT 0 as fail_course_num,count(a.outid) as num from (
+        SELECT
+        count(outid) AS fail_course_num,
+        outid
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        1 = 1
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) aa
+
+        GROUP BY
+        outid
+        )a,(
+        SELECT
+        count(outid) AS fail_course_num,
+        outid
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        1 = 1
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        and eg.point > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) aa
+        GROUP BY
+        outid
+        )b WHERE a.outid=b.outid and a.fail_course_num=b.fail_course_num
+    </select>
+
+    <!-- v2.0考试通过情况 -->
+    <select id="listExamPassCourse" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        total.semester,
+        total.total_course_num,
+        IFNULL(fail.fail_course_num,0) AS fail_course_num,
+        (total.total_course_num - IFNULL(fail.fail_course_num,0)) as pass_course_num
+        FROM
+        (SELECT
+        eg.semester,
+        count(DISTINCT(eg.course_no)) AS total_course_num
+        FROM edu_grade_filter_r eg
+        WHERE
+        1=1 AND eg.exam_natures='正常考试'
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.semester) as total LEFT JOIN
+
+        (SELECT
+        eg.semester,COUNT(DISTINCT(eg.course_no)) as fail_course_num
+        FROM edu_grade_filter_r eg
+        WHERE
+        1=1 and eg.exam_natures='正常考试' and eg.point=0
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY semester) as fail
+        ON total.semester = fail.semester
+    </select>
+
+    <!-- v2.0 修学分情况 -->
+    <select id="listCreditSituation" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        pass.semester,
+        round(pass.pass_credit,1) AS pass_credit,
+        round(total.total_credit,1) AS total_credit,
+        total.total_course_num,
+        pass.pass_course_num,
+        (total.total_course_num - pass.pass_course_num) AS fail_course_num,
+        (round(total.total_credit,1) - round(pass.pass_credit,1) ) as fail_credit,
+        CONCAT(ROUND(pass.pass_credit *100/ total.total_credit,2),"%") as passRation
+        FROM
+        (SELECT
+        eg.semester,
+        sum(eg.credit) AS pass_credit,
+        COUNT(DISTINCT course_no) as pass_course_num
+        FROM edu_grade_credit_r eg
+        WHERE 1=1
+        AND eg.point > 0
+        <!-- 体育课添加到学分的统计 修改于 2018-07-18 -->
+        <!-- AND eg.course_name NOT IN ('体育1','体育2','体育3','体育4') -->
+        AND eg.exam_natures IS NOT NULL
+        AND substring(eg.course_no, 4, 1) &lt;&gt; '9'
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!--   AND eg.term_num in ('1','2','3','4','5','6','7','8') -->
+        AND eg.is_grade_exam =0
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.semester
+        ) AS pass,
+        (SELECT
+        eg.semester,
+        sum(eg.credit) AS total_credit,
+        COUNT(DISTINCT course_no) as total_course_num
+        FROM edu_grade_credit_r eg
+        WHERE 1=1
+        <!--  AND eg.course_name NOT IN ('体育1','体育2','体育3','体育4') -->
+        AND eg.exam_natures IS NOT NULL
+        AND substring(eg.course_no, 4, 1) &lt;&gt; '9'
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- AND eg.term_num in ('1','2','3','4','5','6','7','8') -->
+        AND eg.is_grade_exam =0
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.semester
+        ) AS total
+        WHERE pass.semester=total.semester AND total.total_credit > 0
+    </select>
+
+
+    <!-- 根据挂科数目，显示学生列表-->
+    <select id="failCourseStudentList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        outid,
+        NAME as "name",
+        GROUP_CONCAT(course_name) as failNums
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid,
+        NAME,
+        course_name
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        outid IN (
+        SELECT
+        outid
+        FROM
+        (
+        SELECT
+        count(outid) AS fail_course_num,
+        outid
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        1 = 1
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) aa
+        WHERE
+        aa.point = 0
+        GROUP BY
+        outid
+        ) aa
+        WHERE
+        1=1
+        <if test="failCourseNum !=null and failCourseNum gt 10 ">AND aa. fail_course_num <![CDATA[ >= ]]>
+            #{failCourseNum}
+        </if>
+        <if test="failCourseNum !=null and failCourseNum lt 11 ">
+            AND aa.fail_course_num=#{failCourseNum}
+        </if>
+        )
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) cc
+        WHERE
+        cc.point = 0
+        GROUP BY
+        outid
+        ORDER by outid
+    </select>
+
+    <select id="noFailCourseStudentList" parameterType="com.ziyun.academic.vo.Params" resultType="java.util.Map">
+        SELECT t.outid,t.name as name from (
+        SELECT a.outid from (
+        SELECT
+        count(outid) AS fail_course_num,
+        outid
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        1 = 1
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) aa
+
+        GROUP BY
+        outid
+        )a,(
+        SELECT
+        count(outid) AS fail_course_num,
+        outid
+        FROM
+        (
+        SELECT
+        max(score),
+        point,
+        outid
+        FROM
+        edu_grade_filter_r_nodistinct eg
+        WHERE
+        1 = 1
+        AND eg.is_grade_exam = 0
+        AND eg.credit > 0
+        AND point > 0
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        outid,
+        semester,
+        course_no
+        ) aa
+        GROUP BY
+        outid
+        )b WHERE a.outid=b.outid and a.fail_course_num=b.fail_course_num
+
+        )c ,own_org_student_type t WHERE c.outid=t.outid
+    </select>
+
+    <!--个人 的平均学分绩点 在所在班级的排名。modify by tyk 20170916-->
+    <!--TODO:目前学分绩点的班级排名含补考成绩，如果严格一点，只能是正常考试时的学分绩点比较,需要再重新整理一个表。-->
+    <select id="getRank" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        rc.rank,
+        rc.avg_credit_point,
+        rc.term_num,
+        rc.outid,
+        rc.class_name,
+        rc.semester
+        FROM
+        (SELECT
+        if(@grade = A.term_num, @rownum := @rownum + 1, @rownum := 1) AS rownum,
+        if(@avg = A.avg_credit_point, @rank, @rank := @rownum) AS rank,
+        @avg := A.avg_credit_point AS avg_credit_point,
+        @grade := A.term_num AS term_num,
+        A.outid,
+        A.class_name,
+        A.semester
+        FROM
+        (SELECT
+        rc.class_name,
+        rc.term_num,
+        rc.outid,
+        rc.avg_credit_point,
+        rc.semester
+        FROM r_credit_semester rc
+        WHERE rc.class_name IN (SELECT oos.class_code FROM own_org_student oos where 1=1<include
+            refid="Base_where_List_rank"/>)
+        ORDER BY rc.term_num, rc.avg_credit_point DESC
+        ) A, (SELECT
+        @rank := 0,
+        @rownum := 0,
+        @avg := NULL,
+        @grade := NULL) B) rc
+        where 1=1
+        <include refid="Base_where_List_rc"/>
+        ORDER BY rc.term_num;
+    </select>
+
+    <!-- v2.0毕业所需学分 -->
+    <select id="getGraduationCredit" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT sum(r.pass_credit_sum) as pass_credit_sum,
+        sum(r.graduation_credit_sum) as graduation_credit_sum,
+        CONCAT(ROUND(sum(r.pass_credit_sum)/sum(r.graduation_credit_sum)*100,2),'%') as ratio
+        FROM (
+        SELECT
+        ROUND(sum(eg.credit),1) as pass_credit_sum,
+        COUNT(DISTINCT outid) as stu_num,
+        ROUND((COUNT(DISTINCT outid)*eg.graduation_credit),1) as graduation_credit_sum,
+        eg.enrollment_year,graduation_credit
+        FROM `edu_grade_credit_r` eg
+        where 1=1
+        and eg.point > 0
+        and eg.graduation_credit is not NULL
+        AND substring(eg.course_no, 4, 1) &lt;&gt; '9'
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- AND eg.course_name NOT IN ('体育1','体育2','体育3','体育4') -->
+        AND eg.is_grade_exam =0
+        <include refid="Base_where_List_r"/>
+        GROUP BY major_code,enrollment_year
+        ) r
+    </select>
+
+    <!--平均学分绩点  ysx-->
+    <select id="getAverageScorePoint" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        ROUND((sum(eg.credit*eg.point)/sum(eg.credit)),2) AS avg_credit_point
+        FROM edu_grade_credit_r eg
+        WHERE 1=1
+        AND eg.course_name NOT IN ('体育1','体育2','体育3','体育4')
+        AND substring(eg.course_no, 4, 1) &lt;&gt; '9'
+        AND eg.course_name NOT LIKE '%普通话%'
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!--重修人数 -->
+    <select id="getRetakeCourseNum" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        count(DISTINCT(eg.outid)) AS retake_course_num
+        FROM
+        edu_grade_filter_r eg
+        WHERE 1=1 and eg.exam_natures='重修一'
+        <include refid="Base_where_List_r"/>
+    </select>
+
+
+    <resultMap id="BaseResultMap" type="com.ziyun.academic.entity.EduGrade">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="schooling_length" property="schoolingLength" jdbcType="VARCHAR"/>
+        <result column="semester" property="semester" jdbcType="VARCHAR"/>
+        <result column="faculty" property="faculty" jdbcType="VARCHAR"/>
+        <result column="training_level" property="trainingLevel" jdbcType="VARCHAR"/>
+        <result column="class_name" property="className" jdbcType="VARCHAR"/>
+        <result column="course_no" property="courseNo" jdbcType="VARCHAR"/>
+        <result column="course_name" property="courseName" jdbcType="VARCHAR"/>
+        <result column="score" property="score" jdbcType="VARCHAR"/>
+        <result column="grade_mark" property="gradeMark" jdbcType="VARCHAR"/>
+        <result column="course_natures" property="courseNatures" jdbcType="VARCHAR"/>
+        <result column="course_properties" property="courseProperties" jdbcType="VARCHAR"/>
+        <result column="class_hour" property="classHour" jdbcType="VARCHAR"/>
+        <result column="credit" property="credit" jdbcType="VARCHAR"/>
+        <result column="class_unit" property="classUnit" jdbcType="VARCHAR"/>
+        <result column="enter_name" property="enterName" jdbcType="VARCHAR"/>
+        <result column="exam_natures" property="examNatures" jdbcType="VARCHAR"/>
+        <result column="retake_term" property="retakeTerm" jdbcType="VARCHAR"/>
+        <result column="is_degree" property="isDegree" jdbcType="VARCHAR"/>
+        <result column="is_minor" property="isMinor" jdbcType="VARCHAR"/>
+        <result column="remarks" property="remarks" jdbcType="VARCHAR"/>
+        <result column="assess_method" property="assessMethod" jdbcType="VARCHAR"/>
+        <result column="belong_faculty" property="belongFaculty" jdbcType="VARCHAR"/>
+        <result column="remarks2" property="remarks2" jdbcType="VARCHAR"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+    <!--个人 重修课程数量。-->
+    <select id="getRetakeCourse" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        COUNT( course_no) AS retake_course
+        FROM
+        edu_grade_filter_r eg
+        WHERE 1=1 and eg.exam_natures='重修一'
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <sql id="Base_where_List_rank">
+        <if test="outid != null">
+            and oos.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+    </sql>
+
+    <!--排序-->
+    <sql id="base_order">
+        <if test=" order == 'descending' ">
+            desc
+        </if>
+        <if test=" order == 'ascending' ">
+            asc
+        </if>
+        <if test=" order == null or order == ''">
+            desc
+        </if>
+    </sql>
+
+    <!--获取课程数量 exam_natures  是为了去掉脏数据  -->
+    <select id="getCourseNum" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        count( eg.course_no) AS course_num
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        1=1 and eg.exam_natures IS NOT NULL
+        AND eg.is_grade_exam = 0
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!--分页条件 -->
+    <sql id="Paging">
+        <!-- bootstrap table 分页 -->
+        <if test="start!=null">
+            limit #{start,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+        <!-- <if test="id != null"> and oso.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and oso.outid = #{outid,jdbcType=VARCHAR}, </if> <if
+            test="sex != null"> and oso.sex = #{sex,jdbcType=VARCHAR}, </if> -->
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and oso.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and oso.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and oso.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and oso.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学号：： -->
+        <if test="outid != null">
+            and eg.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        <!-- 判断是否有奖学金 -->
+        <if test="scholarship != null">
+            and eg.outid IN
+            (SELECT es.outid
+            FROM edu_scholarship es
+            )
+        </if>
+        <!--贫困生判断-->
+        <if test="impoverish != null">
+            and eg.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <!-- 学业时间  单选-->
+        <if test="semester != null">
+            and eg.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+        <if test="semesterArr !=null and semesterArr.length >0">
+            AND eg.semester IN
+            <foreach collection="semesterArr" item="semester" open="(" close=")" separator=",">
+                #{semester}
+            </foreach>
+        </if>
+
+
+    </sql>
+
+    <sql id="Base_where_List_rc">
+        <if test="schoolCode != null">
+            and oso.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and oso.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and oso.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and oso.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学号：： -->
+        <if test="outid != null">
+            and rc.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        <!-- 判断是否有奖学金 -->
+        <if test="scholarship != null">
+            and rc.outid IN
+            (SELECT es.outid
+            FROM edu_scholarship es
+            )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and rc.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <if test="semester != null">
+            and rc.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+
+    </sql>
+
+    <sql id="Base_Column_List">
+        id, outid, name, schooling_length, semester, faculty, training_level, class_name,
+        course_no, course_name, score, grade_mark, course_natures, course_properties, class_hour,
+        credit, class_unit, enter_name, exam_natures, retake_term, is_degree, is_minor, remarks,
+        assess_method, belong_faculty, remarks2, school_code
+    </sql>
+
+    <sql id="Base_where_List_r">
+        <!--课程属性:选修，必修 -->
+        <if test="courseProperties != null and courseProperties != '' and courseProperties ==1 ">
+            and eg.course_properties_person ="必修"
+        </if>
+        <if test="courseProperties != null and courseProperties != '' and courseProperties ==2 ">
+            and eg.course_properties_person ="选修"
+        </if>
+
+        <if test="courseProperties != null and courseProperties != '' and courseProperties ==3">
+            and eg.course_properties_new = #{courseProperties,jdbcType=VARCHAR}
+        </if>
+        <!-- 课程分类-->
+        <if test="courseCategory != null">
+            and eg.course_category = #{courseCategory,jdbcType=VARCHAR}
+        </if>
+        <!-- 课程性质-->
+        <if test="courseNatures != null">
+            and eg.course_natures = #{courseNatures,jdbcType=VARCHAR}
+        </if>
+        <if test="politicalCode != null">
+
+            <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+            and eg.outid in (
+            select outid from own_org_student_type
+            where political_code_all=#{politicalCode}
+            )
+
+        </if>
+
+        <!-- 学期 -->
+        <if test="termNum != null">
+            and eg.term_num = #{termNum,jdbcType=INTEGER}
+        </if>
+        <!--入学年份 多选-->
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND eg.enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+        <!-- 学期时间多选-->
+        <if test="semesterArr !=null and semesterArr.length >0">
+            AND eg.semester IN
+            <foreach collection="semesterArr" open="(" close=")" separator="," item="semester1">
+                #{semester1}
+            </foreach>
+        </if>
+
+        <!-- 学籍状态 -->
+        <if test="eduStatus != null">
+            and eg.outid in (
+            SELECT outid FROM own_org_student_type
+            WHERE
+            edu_status like concat(concat('%',#{eduStatus}),'%')
+            )
+        </if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and eg.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and eg.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and eg.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 判断是否有奖学金 -->
+        <if test="scholarship != null">
+            and eg.outid IN
+            (SELECT es.outid
+            FROM edu_scholarship es
+            )
+        </if>
+        <!--贫困生判断-->
+        <if test="impoverish != null">
+            and eg.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and eg.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学号：： -->
+        <if test="outid != null">
+            and eg.outid LIKE CONCAT("%",#{outid},"%")
+        </if>
+        <!-- 姓名-->
+        <if test="name !=null and name !='' ">
+            AND eg.name LIKE concat("%",#{name},"%")
+        </if>
+        <!-- 性别-->
+        <if test="sex !=null and sex !='' ">
+            AND eg.sex=#{sex}
+        </if>
+
+    </sql>
+
+    <!--学业特征-学分绩点统计-柱形图对应的平均学分绩点  使用edu_grade_filter_r_semester ，该表已过滤好，按照每学期取最后一条数据-->
+    <select id="scorePointList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        DISTINCT eg.course_no,eg.course_name ,round(sum(eg.credit * eg.point)/sum(eg.credit), 2) AS avg_credit_point
+        FROM edu_grade_filter_r_semester eg
+        WHERE 1=1
+        <!--  AND eg.term_num in ('1','2','3','4','5','6','7','8') -->
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- 体育课添加到平均学分绩点的统计 修改于2018-07-19 -->
+        <!-- AND eg.course_name NOT IN ('体育1', '体育2', '体育3', '体育4')-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        <if test="semester != null and semester != ''">
+            and eg.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.course_no
+    </select>
+
+    <!-- 学业特征-考试通过情况  柱形图课程有无挂科列表-->
+    <!--统计有挂科的科目-->
+    <select id="failCourseList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT DISTINCT
+        course_no,course_name ,'挂科' as isPass
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        eg.exam_natures = '正常考试'
+        <include refid="Base_where_List_r"/>
+        <if test="semester != null and semester != ''">
+            and eg.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+        AND eg.point = '0'
+        AND eg.credit > 0
+
+    </select>
+    <!-- 学业特征-考试通过情况  柱形图课程有无挂科列表-->
+    <!--统计无挂科的科目-->
+    <select id="passCourseList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT DISTINCT
+        course_no,
+        course_name,
+        '无挂科' AS isPass
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        course_no NOT IN (
+        SELECT DISTINCT
+        course_no AS isPass
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        eg.exam_natures = '正常考试'
+        AND eg.credit > 0
+
+        AND eg.point = '0'
+        <include refid="Base_where_List_r"/>
+        <if test="semester != null and semester != ''">
+            and eg.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+        )
+        AND eg.exam_natures = '正常考试'
+
+        AND eg.credit > 0
+        <include refid="Base_where_List_r"/>
+        <if test="semester != null and semester != ''">
+            and eg.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+    </select>
+
+
+    <!-- 绩点排名-->
+    <select id="pointTop" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        cc.avg_credit_point as point,
+        b.outid,
+        b. NAME,
+        b.major_name,
+        b.class_code
+        FROM
+        (
+        SELECT
+        round(
+        sum(credit_point) / count(semester),
+        2
+        ) AS avg_credit_point,
+        outid
+        FROM
+        (
+        SELECT
+        sum(credit * point) / sum(credit) AS credit_point,
+        semester,
+        outid
+        FROM
+        edu_grade_filter_r_semester r
+        WHERE
+        1 = 1
+        AND r.course_name NOT LIKE '%普通话%'
+        AND substring(r.course_no, 4, 1) != "9"
+        AND r.is_grade_exam = 0
+        <!--学期多选-->
+        <if test="semesterArr !=null and semesterArr.length >0 ">
+            AND r.semester IN
+            <foreach collection="semesterArr" item="semester1" open="(" close=")" separator=",">
+                #{semester1}
+            </foreach>
+        </if>
+        GROUP BY
+        outid,
+        semester
+        ) aa
+        GROUP BY
+        outid
+        ) cc,
+        own_org_student_type b
+        WHERE
+        cc.outid = b.outid
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+
+        <!-- 学号outid-->
+        <if test="outid != null">
+            and b.outid LIKE CONCAT("%",#{outid},"%")
+        </if>
+        <!--  根据学生名称 模糊查询-->
+        <if test="name !=null and name !='' ">
+            AND b.NAME LIKE CONCAT("%",#{name},"%")
+        </if>
+        <!-- 特定人群 -->
+        <!-- 优等生 -->
+        <if test="scholarship == 1">
+            and b.scholarship = 1
+        </if>
+        <!-- 貧困生 -->
+        <if test="impoverish == 1">
+            and b.impoverish = 1
+        </if>
+        <!-- 学历-->
+        <if test="education !=null and education != '' ">
+            AND b.training_level = #{education}
+        </if>
+
+        <!-- 政治面貌-->
+        <if test="politicalCode != null">
+            and b.political_code_all=#{politicalCode}
+        </if>
+
+
+        <!--入学年份-->
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND b.first_enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+
+
+        <!--学籍状态-->
+        <if test="eduStatus !=null and eduStatus != '' ">
+            AND b.edu_status like CONCAT("%",#{eduStatus},"%")
+        </if>
+        <!-- 性别-->
+        <if test="sex !=null and sex !='' ">
+            AND b.sex =#{sex}
+        </if>
+        <!-- 学历-->
+        <if test="education !=null and education != '' ">
+            AND b.training_level = #{education}
+        </if>
+        ORDER BY
+        point
+        <include refid="base_order"/>
+
+    </select>
+
+    <!-- 学业特征-选修课排名 新改造 2018·6·27 成柱形图-->
+    <select id="electiveTop" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        count(outid) as num ,semester
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        is_grade_exam= 0
+        and course_properties_person='选修'
+        <include refid="Base_where_List_r"/>
+        GROUP BY
+        semester order BY semester
+    </select>
+
+    <!-- 学业特征 -选修课排名 弹窗二 统计某门选修课程，每一学期变化情况-->
+    <select id="electiveTopCoursenoSemester" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        count(outid) as num ,course_name,semester
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        is_grade_exam= 0
+        and course_properties_person='选修'
+        <if test="courseName !=null and courseName != '' ">
+            AND course_name = #{courseName}
+        </if>
+        <include refid="Base_where_List_r"/>
+        GROUP BY semester
+
+    </select>
+
+    <!-- 学业特征 选修课排名 弹窗一 统计课程选课人数-->
+    <select id="electiveTopCoursenoList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        count(outid) as num ,course_no,course_name
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        is_grade_exam= 0
+        and course_properties_person='选修'
+        <if test="courseName !=null and courseName != ''">
+            AND (eg.course_no LIKE concat("%",#{courseName},"%") OR eg.course_name LIKE concat("%",#{courseName},"%"))
+        </if>
+        <include refid="Base_where_List_r"/>
+        GROUP BY course_name
+        order BY
+        <if test="numSort != null and numSort ==0">
+            num asc
+        </if>
+        <if test="numSort != null and numSort == 1">
+            num desc
+        </if>
+    </select>
+
+    <!-- 学业特征 选修课排名 选修课学生列表-->
+    <select id="electiveTopStudentList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT eg.outid,eg.name
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        course_properties_new IN (2, 3)
+        AND eg.is_grade_exam=0
+        <if test="courseName != null and courseName !='' ">
+            AND course_name =#{courseName}
+        </if>
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!-- 学业特征  等级考试详情 -->
+    <select id="gradeExam" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        eg.semester,eg.course_no,count(eg.outid) as sum
+        FROM edu_grade_filter_r eg
+        WHERE
+        1=1 and eg.exam_natures='正常考试' and eg.point >0
+        AND eg.is_grade_exam=1
+        <include refid="Base_where_List_r"/>
+        GROUP BY eg.semester,eg.course_no
+    </select>
+
+    <!--学业特征 修学分情况 修学分情况课程列表 -->
+    <select id="completionCourseList" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT
+        total.course_no,total.course_name,
+        <![CDATA[ CASE
+				WHEN  pass.pass_credit IS null THEN 0
+				ELSE  pass.pass_credit
+			   END
+			]]>
+        as punish_credit,
+        total.total_credit
+        FROM
+        (SELECT
+        eg.semester,
+        sum(eg.credit) AS total_credit,
+        eg.course_name,
+        eg.course_no
+        FROM edu_grade_credit_r eg
+        WHERE 1=1
+        <!-- 体育课加入到学分的统计,修改于2018-07-18 -->
+        <!--AND eg.course_name NOT IN ('体育1','体育2','体育3','体育4')-->
+        AND eg.exam_natures IS NOT NULL
+        AND substring(eg.course_no, 4, 1) != '9'
+        AND eg.course_name NOT LIKE '%普通话%'
+        AND eg.is_grade_exam =0
+
+        <if test="semester != null and semester != ''">
+            and eg.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+        <include refid="Base_where_List_r"/>
+
+
+        GROUP BY eg.course_no
+        ) AS total LEFT JOIN
+        (SELECT
+        eg.course_no,
+        sum(eg.credit) AS pass_credit
+
+
+        FROM edu_grade_credit_r eg
+        WHERE 1=1
+        <!-- 体育课加入到学分的统计,修改于2018-07-18 -->
+        <!--AND eg.course_name NOT IN ('体育1','体育2','体育3','体育4')-->
+        AND eg.exam_natures IS NOT NULL
+        AND substring(eg.course_no, 4, 1) != '9'
+        AND eg.course_name NOT LIKE '%普通话%'
+        AND eg.is_grade_exam =0
+        AND eg.point > 0
+        <if test="semester != null and semester != ''">
+            and eg.semester like concat(#{semester,jdbcType=VARCHAR},'%')
+        </if>
+        <include refid="Base_where_List_r"/>
+
+
+        GROUP BY eg.course_no
+        ) AS pass on total.course_no=pass.course_no
+        WHERE total.total_credit > 0
+    </select>
+
+    <select id="getStudentAvgCreditPoint" parameterType="String" resultType="Map">
+        SELECT
+        a.major_avg_point,
+        b.class_avg_point,
+        c.own_avg_point,
+        c.semester
+        FROM
+        (
+        SELECT round(sum(person_avg_credit_point)/count(DISTINCT outid),2) AS major_avg_point,semester FROM (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit)/count(DISTINCT semester) ,
+        2
+        ) AS person_avg_credit_point,
+        eg.semester,outid
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        major_code = (
+        SELECT DISTINCT
+        major_code
+        FROM
+        edu_grade_filter_r_semester
+        WHERE
+        outid =#{outid}
+        )
+        AND enrollment_year = #{enrollmentYear}
+
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        GROUP BY
+        eg.semester,outid
+        )aa GROUP BY semester
+        ) a,
+        (
+        SELECT round(sum(person_avg_credit_point)/count(DISTINCT outid),2) AS class_avg_point,semester FROM (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit)/count(DISTINCT semester) ,
+        2
+        ) AS person_avg_credit_point,
+        eg.semester,outid
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        class_code = (
+        SELECT DISTINCT
+        class_code
+        FROM
+        edu_grade_filter_r_semester
+        WHERE
+        outid =#{outid}
+        )
+        AND enrollment_year = #{enrollmentYear}
+
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        GROUP BY
+        eg.semester,outid
+        )aa GROUP BY semester
+
+        ) b,
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit)/count(DISTINCT semester),
+        2
+        ) AS own_avg_point,
+        eg.semester
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        outid = #{outid}
+        AND enrollment_year = #{enrollmentYear}
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- AND eg.course_name NOT IN (
+            '体育1',
+            '体育2',
+            '体育3',
+            '体育4'
+        )-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        GROUP BY
+        eg.semester
+        ) c
+        WHERE
+        a.semester = b.semester
+        AND a.semester = c.semester
+    </select>
+
+    <!-- 班级排名：班上所有人的绩点（包括自己）大于自己的绩点减去0.0001 的人数，如果只有一个人，那么自己就是班级第一名 专业排名也同理-->
+    <select id="getStudentRanking" parameterType="String" resultType="Map">
+        SELECT
+        c.major_ranking,
+        d.class_ranking,
+        d.semester
+        FROM
+        (
+        SELECT
+        count(1) AS major_ranking,
+        a.semester
+        FROM
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        ) AS point,
+        outid,
+        semester
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        eg.major_code = (
+        SELECT DISTINCT
+        major_code
+        FROM
+        edu_grade_filter_r_semester
+        WHERE outid = #{outid}
+
+        )
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!--体育课添加到平均学分绩点的统计，修改于2018-07-20 -->
+        <!--	AND eg.course_name NOT IN (
+                '体育1',
+                '体育2',
+                '体育3',
+                '体育4'
+            )-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND enrollment_year = #{enrollmentYear}
+        GROUP BY
+        semester,
+        outid
+        ) a,
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        ) AS point,
+        semester
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        outid = #{outid}
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!--体育课添加到平均学分绩点的统计，修改于2018-07-20 -->
+        <!--	AND eg.course_name NOT IN (
+                '体育1',
+                '体育2',
+                '体育3',
+                '体育4'
+            )-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND enrollment_year = #{enrollmentYear}
+        GROUP BY
+        semester
+        ) b
+        WHERE
+        a.semester = b.semester
+        AND a.point > (b.point - 0.00001)
+        GROUP BY
+        a.semester
+        ) c,
+        (
+        SELECT
+        count(1) AS class_ranking,
+        a.semester
+        FROM
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),2
+        ) AS point,
+        outid,
+        semester
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        eg.class_code = (
+        SELECT DISTINCT
+        class_code
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE outid =#{outid}
+
+        )
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!--体育课添加到平均学分绩点的统计，修改于2018-07-20 -->
+        <!--AND eg.course_name NOT IN (
+            '体育1',
+            '体育2',
+            '体育3',
+            '体育4'
+        )-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND enrollment_year = #{enrollmentYear}
+        GROUP BY
+        semester,
+        outid
+        ) a,
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        ) AS point,
+        semester
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        eg.outid = #{outid}
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!--体育课添加到平均学分绩点的统计，修改于2018-07-20 -->
+        <!--	AND eg.course_name NOT IN (
+                '体育1',
+                '体育2',
+                '体育3',
+                '体育4'
+            ) -->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND enrollment_year = #{enrollmentYear}
+        GROUP BY
+        semester
+        ) b
+        WHERE
+        a.semester = b.semester
+        AND a.point > (b.point - 0.00001)
+        GROUP BY
+        a.semester
+        ) d
+        WHERE
+        c.semester = d.semester;
+    </select>
+
+    <!--成绩学分情况-->
+    <select id="getScoreCredit" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+
+        SELECT
+        eg.semester,
+        CONCAT(eg.course_name,"(",eg.exam_natures,")") AS course_name,
+        eg.score,
+        eg.credit,
+        eg.point
+        FROM edu_grade_filter_r_nodistinct eg
+        <![CDATA[
+        WHERE eg.credit > 0
+        ]]>
+        <!-- AND eg.exam_natures = '正常考试' -->
+        AND is_grade_exam=0
+        <include refid="Base_where_List_r"/>
+        ORDER BY eg.semester,eg.course_name;
+    </select>
+
+    <select id="countryGrade" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        total.course_no,
+        total.semester,
+        IFNULL(pass1.passNum,0) passNum,
+        total.totalNum,
+        (
+        total.totalNum - ifnull(pass1.passNum,0)
+        ) AS failNum,
+        CONCAT(
+        ROUND(
+        ifnull(pass1.passNum,0) * 100 / total.totalNum,
+        2
+        ),
+        "%"
+        ) AS passRatio
+        FROM
+        (
+        SELECT
+        course_no,
+        semester,
+        count(DISTINCT outid) as passNum
+        FROM
+        edu_grade_cet eg
+        WHERE
+        is_grade_exam = 1
+        AND exam_natures = '正常考试'
+        AND eg.point >= 1
+        <include refid="Base_where_List_r"/>
+        <if test="courseNo !=null and courseNo != ''">
+            AND eg.course_no=#{courseNo}
+        </if>
+        <if test="courseName != null and courseName !='' ">
+            AND eg.course_name_one= #{courseName}
+        </if>
+        GROUP BY
+        course_no,
+        eg.semester
+        ) pass1 RIGHT JOIN
+        (
+        SELECT
+        course_no,
+        semester,
+        count( outid) as totalNum
+        FROM
+        edu_grade_cet eg
+        WHERE
+        is_grade_exam = 1
+        AND exam_natures = '正常考试'
+        <include refid="Base_where_List_r"/>
+        <if test="courseNo !=null and courseNo != ''">
+            AND eg.course_no=#{courseNo}
+        </if>
+        <if test="courseName != null and courseName !='' ">
+            AND eg.course_name_one= #{courseName}
+        </if>
+        GROUP BY
+        course_no,
+        eg.semester
+        ) total
+        ON pass1.course_no=total.course_no AND pass1.semester=total.semester
+        ORDER by total.semester
+    </select>
+
+    <select id="countryGradeStudentList" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        outid,
+        NAME,
+        score
+        FROM
+        edu_grade_cet eg
+        WHERE
+        1=1
+        AND is_grade_exam=1
+        <include refid="Base_where_List_r"/>
+        <if test="semester !=null and semester != ''">
+            AND eg.semester=#{semester}
+        </if>
+        <if test="courseNo !=null and courseNo != ''">
+            AND eg.course_no=#{courseNo}
+        </if>
+    </select>
+    <!--等级考试情况 一级分类-->
+    <select id="organOne" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT DISTINCT
+        course_no_one_cn AS courseNoOne,
+        course_no_one AS courseNoOneZh
+        FROM
+        edu_grade_cet eg
+        WHERE
+        course_no_one IS NOT NULL
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!--等级考试情况 二级分类-->
+    <select id="organTwo" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT DISTINCT
+        course_name_one,
+        course_no
+        FROM
+        edu_grade_cet eg
+        WHERE
+        is_grade_exam = 1
+        <if test="courseNo != null and courseNo != '' ">
+            AND eg.course_no_one=#{courseNo}
+        </if>
+        <include refid="Base_where_List_r"/>
+    </select>
+    <select id="semesterTime" parameterType="com.ziyun.academic.vo.Params" resultType="Map">
+        SELECT DISTINCT
+        semester
+        FROM
+        edu_grade_filter_r
+        WHERE enrollment_year <![CDATA[ > ]]> 2012
+        ORDER BY
+        semester
+        DESC
+    </select>
+
+    <!-- 学业预警  必修课 挂科2 到门的学生-->
+    <select id="compulsoryCoursesList" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        SELECT
+        outid,
+        NAME as "name",
+        faculty_name,
+        major_name,
+        class_code,
+        age,
+        gender,
+        fail_requiredcourse_sum AS "fail_course_num",
+        admission_date,
+        native_place FROM early_warning_academic_student eg
+        WHERE 1=1
+        <if test="failCourseNum != null and failCourseNum  == 0">
+            and fail_requiredcourse_sum  <![CDATA[ >= ]]> 2
+            and fail_requiredcourse_sum  <![CDATA[ <= ]]> 4
+        </if>
+        <if test="failCourseNum != null and failCourseNum == 1">
+            AND fail_requiredcourse_sum  <![CDATA[ >= ]]> 4
+        </if>
+        <include refid="Base_where_List_r"/>
+        ORDER BY outid
+        <include refid="Paging"/>
+        <!-- SELECT a.*,b.faculty_name,major_name FROM (
+         SELECT
+         e.outid,
+         e. NAME as "name" ,
+         e.class as "class_code",
+         e.sex as "gender",
+         LEFT (NOW(), 4) - LEFT (e.birthdate, 4) AS age,
+         e.admission_date,
+         e.native_place,
+         fail_course_num
+         FROM
+         (
+         SELECT
+         (total.num - pass.num) AS fail_course_num,
+         pass.outid
+         FROM
+         (
+         SELECT
+         eg.outid,
+         count(*) AS num
+         FROM
+         edu_grade_filter_r eg
+         WHERE
+         eg.exam_natures = '正常考试'
+         AND eg.point > 0
+         AND eg.is_grade_exam = 0
+         AND eg.course_properties_person = '必修'
+         <include refid="Base_where_List_r"/>
+         GROUP BY
+         eg.outid
+         ) AS pass,
+         (
+         SELECT
+         eg.outid,
+         count(*) AS num
+         FROM
+         edu_grade_filter_r eg
+         WHERE
+         eg.exam_natures = '正常考试'
+         AND eg.is_grade_exam = 0
+         AND eg.course_properties_person = '必修'
+         <include refid="Base_where_List_r"/>
+         GROUP BY
+         eg.outid
+         ) AS total
+         WHERE
+         total.outid = pass.outid
+         &lt;!&ndash;failCourseNum 为0 必修课挂科门数 大于等于0，小于4门， 为1 大于等于4门 &ndash;&gt;
+         <if test="failCourseNum != null and failCourseNum  == 0">
+             and (total.num - pass.num)  <![CDATA[ >= ]]> 2
+             and (total.num - pass.num)  <![CDATA[ < ]]> 4
+         </if>
+         <if test="failCourseNum != null and failCourseNum == 1">
+             AND (total.num - pass.num)  <![CDATA[ >= ]]> 4
+         </if>
+         AND total.num > 0
+         ) a,
+         edu_status e
+         WHERE
+         a.outid = e.outid
+         AND e.outid in (select outid FROM own_org_student_type WHERE edu_status like '%1-%')
+         <include refid="Paging"/>) a INNER JOIN own_org_student_type b on a.outid=b.outid
+ -->
+    </select>
+
+    <!-- 学业预警  必修课 挂科数量在 2到4门之间-->
+    <select id="compulsoryCoursesCount" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="int">
+        SELECT
+        count(outid)
+        FROM early_warning_academic_student eg
+        WHERE 1=1
+        <if test="failCourseNum != null and failCourseNum  == 0">
+            and fail_requiredcourse_sum  <![CDATA[ >= ]]> 2
+            and fail_requiredcourse_sum  <![CDATA[ <= ]]> 4
+        </if>
+        <if test="failCourseNum != null and failCourseNum == 1">
+            AND fail_requiredcourse_sum  <![CDATA[ >= ]]> 4
+        </if>
+        <include refid="Base_where_List_r"/>
+        ORDER BY outid
+    </select>
+
+    <!-- 获取学生 所有学期的班级排名-->
+    <select id="getClassRanking" parameterType="java.lang.String" resultType="map">
+        SELECT
+        count(1) AS class_ranking,
+        a.semester,
+        b.outid
+        FROM
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),2
+        ) AS point,
+        outid,
+        semester
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        eg.class_code = (
+        SELECT DISTINCT
+        class_code
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE outid =#{outid}
+
+        )
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- AND eg.course_name NOT IN (
+            '体育1',
+            '体育2',
+            '体育3',
+            '体育4'
+        )-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        GROUP BY
+        semester,
+        outid
+        ) a,
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        ) AS point,
+        semester,
+        outid
+        FROM
+        edu_grade_filter_r_semester eg
+        WHERE
+        eg.outid = #{outid}
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        <!-- AND eg.course_name NOT IN (
+            '体育1',
+            '体育2',
+            '体育3',
+            '体育4'
+        )-->
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+
+        GROUP BY
+        semester
+        ) b
+        WHERE
+        a.semester = b.semester
+        AND a.point > (b.point - 0.00001)
+        GROUP BY
+        a.semester
+        ORDER BY b.semester
+    </select>
+
+    <!-- 学业预警 给early_warning_academic_student 的学生 添加每学期的班级排名-->
+    <insert id="updateStudentClassRaningChange" parameterType="java.util.Map">
+        update early_warning_academic_student set class_ranking_change =
+        #{classRnkingChange},last_semester_class_ranking = #{lastSemesterClassRanking} ,curr_semester_class_ranking =
+        #{curSemesterClassRanking}
+        WHERE outid =#{outid} AND semester=#{semester};
+    </insert>
+
+    <!-- 学业预警 查询本学期与上一学期相比 班级名次下滑超过十名的学生列表-->
+    <select id="getStudentClassRankingSlideList" parameterType="com.ziyun.academic.vo.AcademicParams"
+            resultType="map">
+        SELECT
+        outid,
+        NAME AS "name",
+        faculty_name,
+        major_name,
+        class_code,
+        gender,
+        age,
+        native_place,
+        admission_date,
+        last_semester_class_ranking,
+        curr_semester_class_ranking,
+        class_ranking_change
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        class_ranking_change > 10
+        <include refid="Base_where_List_r"/>
+        ORDER BY outid desc
+        <include refid="Paging"/>
+    </select>
+
+    <!-- 学业预警 查询本学期与上一学期相比 班级名次下滑超过十名的学生总长度-->
+    <select id="getStudentClassRankingSlideSize" parameterType="com.ziyun.academic.vo.AcademicParams"
+            resultType="int">
+        SELECT
+        count(outid) as num
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        class_ranking_change > 10
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!--学业预警 获取学生一整学年 获得学分小于 18学分的学生列表-->
+    <select id="getStudentYearCreditList" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        SELECT
+        outid,
+        NAME AS "name",
+        faculty_name,
+        major_name,
+        class_code,
+        gender,
+        age,
+        native_place,
+        admission_date,
+        sum(term_credit) AS "term_credit"
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        1=1
+        <include refid="Base_where_List_r"/>
+        GROUP by outid
+        HAVING sum(term_credit) <![CDATA[ < ]]> 18
+        ORDER BY outid
+        <include refid="Paging"/>
+    </select>
+
+    <!--获取整学年所获得学分小于 18分的学生列表总长度-->
+    <select id="getStudentYearCreditSize" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="int">
+        SELECT count(outid) as num from (
+        SELECT
+        outid
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        1=1
+        <include refid="Base_where_List_r"/>
+        GROUP by outid
+        HAVING sum(term_credit) <![CDATA[ < ]]> 18
+        ORDER BY outid
+        )aa
+    </select>
+
+    <!-- 统计受过处分的学生列表（处分类型：严重警告","警告处分"除外）-->
+    <select id="getStudentPulishList" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        SELECT
+        outid,
+        NAME AS "name",
+        faculty_name,
+        major_name,
+        class_code,
+        gender,
+        age,
+        native_place,
+        admission_date,
+        punish_type
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        punish_type IS not null
+        <include refid="Base_where_List_r"/>
+        ORDER BY outid
+        <include refid="Paging"/>
+
+    </select>
+
+    <!--统计受过处分的学生列表总长度（处分类型：严重警告","警告处分"除外）-->
+    <select id="getStudentPulishSize" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="int">
+        SELECT
+        count(outid)
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        punish_type IS not null
+        <include refid="Base_where_List_r"/>
+        ORDER BY outid
+    </select>
+
+    <!-- 获取指定学期英语成绩小于390分的学生列表总长度-->
+    <select id="getStudentEnglishScoreList" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        SELECT
+        outid,
+        NAME AS "name",
+        faculty_name,
+        major_name,
+        class_code,
+        gender,
+        age,
+        native_place,
+        admission_date,
+        CET4score
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        CET4score <![CDATA[ < ]]> 390
+        <include refid="Base_where_List_r"/>
+        ORDER BY outid
+        <include refid="Paging"/>
+    </select>
+
+    <!-- 获取指定学期英语成绩小于390分的学生列表总长度-->
+    <select id="getStudentEnglishScoreSize" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="int">
+        SELECT count(outid) as num
+        FROM
+        early_warning_academic_student eg
+        WHERE
+        CET4score <![CDATA[ < ]]> 390
+        <include refid="Base_where_List_r"/>
+    </select>
+
+    <!-- 查询edu_grade_filter_r 表中的所有学期-->
+    <select id="getAllSemester" resultType="java.lang.String">
+        SELECT DISTINCT semester from edu_grade_filter_r ORDER BY semester
+    </select>
+</mapper>

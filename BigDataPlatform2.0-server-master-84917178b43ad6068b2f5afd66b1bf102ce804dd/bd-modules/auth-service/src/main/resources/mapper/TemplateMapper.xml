@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.auth.mapper.TemplateMapper">
+  <resultMap id="BaseResultMap" type="com.ziyun.auth.model.Template">
+    <!--
+      WARNING - @mbg.generated
+    -->
+      <id column="template_id" jdbcType="BIGINT" property="id"/>
+    <result column="template_name" jdbcType="VARCHAR" property="templateName" />
+    <result column="template_type" jdbcType="INTEGER" property="templateType" />
+    <result column="create_user_id" jdbcType="BIGINT" property="createUserId" />
+    <result column="remark" jdbcType="VARCHAR" property="remark" />
+    <result column="role_id" jdbcType="BIGINT" property="roleId" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+    <result column="update_time" jdbcType="TIMESTAMP" property="updateTime" />
+  </resultMap>
+    <!-- -->
+    <insert id="insertTemplateFuncPermission" parameterType="com.ziyun.auth.model.Template">
+        INSERT INTO auth_permission_template (template_id,func_permission_id)
+        VALUES
+        <foreach collection="funcPermIds" separator="," item="funcPermissionId">
+            (#{id},#{funcPermissionId})
+        </foreach>
+    </insert>
+
+    <!--删除 模板功能权限中间表 auth_permission_template-->
+    <delete id="deleteTemplateAndPermis" parameterType="com.ziyun.auth.model.Template">
+        DELETE  FROM auth_permission_template
+        WHERE 1=1
+        <if test="id !=null and id !='' ">
+            and template_id =#{id}
+        </if>
+        <if test="ids !=null and ids.length > 0">
+            and template_id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+    </delete>
+
+    <delete id="deleteTemplates" parameterType="com.ziyun.auth.model.Template">
+        DELETE FROM auth_template
+        WHERE template_id IN
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="listTemplates" parameterType="com.ziyun.auth.model.Template" resultMap="BaseResultMap">
+        SELECT
+        template_id,
+        create_user_id,
+        template_name,
+        template_type,
+        remark,
+        role_id,
+        create_time,
+        update_time
+        FROM auth_template
+        WHERE 1=1
+        <if test="templateName !=null and templateName != '' ">
+            and template_name like concat("%",#{templateName},"%")
+        </if>
+
+    </select>
+
+    <select id="listTemplatesCount" parameterType="com.ziyun.auth.model.Template" resultType="java.lang.Integer">
+        select count (1) from (
+        SELECT
+        template_id
+        FROM auth_template
+        WHERE 1=1
+        <if test="templateName !=null and templateName != '' ">
+            and template_name like concat("%",#{templateName},"%")
+        </if>
+        ) a
+
+    </select>
+</mapper>

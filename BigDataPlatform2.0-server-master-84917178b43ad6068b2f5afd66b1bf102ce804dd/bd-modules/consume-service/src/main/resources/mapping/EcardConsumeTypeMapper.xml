@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.consume.dao.EcardConsumeTypeDao">
+    <resultMap id="BaseResultMap" type="com.ziyun.consume.entity.EcardConsumeType">
+        <id column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        acccode, dscrp
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from m_consume_type
+        where acccode = #{acccode,jdbcType=BIGINT}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete from m_consume_type
+        where acccode = #{acccode,jdbcType=BIGINT}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.consume.entity.EcardConsumeType">
+        insert into m_consume_type (acccode, dscrp)
+        values (#{acccode,jdbcType=BIGINT}, #{dscrp,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.consume.entity.EcardConsumeType">
+        insert into m_consume_type
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="acccode != null">
+                acccode,
+            </if>
+            <if test="dscrp != null">
+                dscrp,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="acccode != null">
+                #{acccode,jdbcType=BIGINT},
+            </if>
+            <if test="dscrp != null">
+                #{dscrp,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.consume.entity.EcardConsumeType">
+        update m_consume_type
+        <set>
+            <if test="dscrp != null">
+                dscrp = #{dscrp,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where acccode = #{acccode,jdbcType=BIGINT}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.consume.entity.EcardConsumeType">
+        update m_consume_type
+        set dscrp = #{dscrp,jdbcType=VARCHAR}
+        where acccode = #{acccode,jdbcType=BIGINT}
+    </update>
+</mapper>

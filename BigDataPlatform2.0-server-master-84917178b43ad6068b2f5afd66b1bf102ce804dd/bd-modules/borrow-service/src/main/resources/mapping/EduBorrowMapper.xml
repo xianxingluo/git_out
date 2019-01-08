@@ -1,0 +1,1864 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.borrow.mapper.EduBorrowMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.borrow.model.EduBorrow">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="OUTID" property="outid" jdbcType="VARCHAR"/>
+        <result column="REDER_NAME" property="rederName" jdbcType="VARCHAR"/>
+        <result column="SEX" property="sex" jdbcType="CHAR"/>
+        <result column="DEPT" property="dept" jdbcType="VARCHAR"/>
+        <result column="BOOK_NO" property="bookNo" jdbcType="VARCHAR"/>
+        <result column="BOOK_NAME" property="bookName" jdbcType="VARCHAR"/>
+        <result column="BORROW_DATE" property="borrowDate" jdbcType="TIMESTAMP"/>
+        <result column="RETURN_DATE" property="returnDate" jdbcType="TIMESTAMP"/>
+        <result column="CLC_NO" property="clcNo" jdbcType="VARCHAR"/>
+        <result column="CLASSIFY" property="classify" jdbcType="VARCHAR"/>
+        <result column="TARGET" property="target" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+    <!-- +++++++++++业务查询 +++++++++++ -->
+
+    <resultMap id="ResultDataMap" type="com.ziyun.borrow.vo.ResultData">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+        <result column="datetime" property="datetime" jdbcType="TIMESTAMP"/>
+        <result column="datetimeStr" property="datetimeStr" jdbcType="VARCHAR"/>
+        <result column="weekindex" property="weekindex" jdbcType="INTEGER"/>
+        <result column="week" property="week" jdbcType="VARCHAR"/>
+        <result column="hour" property="hour" jdbcType="VARCHAR"/>
+        <result column="num" property="num" jdbcType="BIGINT"/>
+        <result column="sum" property="sum" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <!-- 用于根据时间段：合并数据的查询 -->
+    <resultMap id="ResultTimesMap" type="com.ziyun.borrow.vo.ResultTimesData">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="days" property="days" jdbcType="INTEGER"/>
+        <result column="bhour" property="bhour" jdbcType="INTEGER"/>
+        <result column="ehour" property="ehour" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <!--成绩提高分析 begin -->
+    <!--成绩提高分析 4、借阅 借阅次数-->
+    <select id="getBorrow4Analysis" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT
+        b.num,
+        r.avg_credit_point
+        FROM
+        (SELECT count(*) AS num,
+        b.OUTID
+        FROM edu_borrow b inner join
+        own_org_student_param t on
+        b.OUTID=t.outid
+        WHERE b.role= 1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid
+        ) b,
+        (SELECT
+        rc.outid,
+        round(sum(rc.total_credit_point)/sum(rc.total_credit),2) AS avg_credit_point
+        FROM
+        <include refid="Base_where_List_semester"/>
+        WHERE 1=1
+        <include refid="Base_where_List_rc"/>
+        GROUP BY rc.outid
+        HAVING sum(rc.total_credit)>0) r
+        WHERE b.OUTID= r.outid ;
+    </select>
+
+    <sql id="Base_where_List_rc">
+        <!-- 根据学期查询 -->
+        <if test="semester != null and semester!=''">
+            and rc.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+    </sql>
+    <sql id="Base_where_List_semester">
+        <choose>
+            <when test="semester != null and semester!=''">
+                r_credit_semester rc
+            </when>
+            <otherwise>
+                r_credit_distinct rc
+            </otherwise>
+        </choose>
+    </sql>
+    <!--成绩提高分析 4、借阅 人均借阅时长-->
+    <select id="getBorrowTime4Analysis" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        select
+        k.OUTID as 'outid',
+        round(k.timeSum/k.bookNum, 2) as 'avgtimeSum',
+        r.avg_credit_point
+        FROM (
+
+        SELECT
+        b.OUTID,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,b.BORROW_DATE,IFNULL(b.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum
+        FROM edu_borrow b inner join own_org_student_param t on
+        b.OUTID=t.outid
+
+        WHERE b.role =1
+        <include refid="Base_where_List"/>
+        group by b.OUTID
+        ) k,
+        (SELECT
+        rc.outid,
+        round(sum(rc.total_credit_point)/sum(rc.total_credit),2) AS avg_credit_point
+        FROM
+        <include refid="Base_where_List_semester"/>
+        WHERE 1=1
+        <include refid="Base_where_List_rc"/>
+        GROUP BY rc.outid
+        HAVING sum(rc.total_credit)>0) r
+        WHERE k.bookNum>0 AND r.outid=k.OUTID;
+
+
+    </select>
+
+    <!--成绩提高分析 end -->
+
+    <!-- 1、 借阅书籍排名top10 -->
+    <select id="bookTopList" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT b.BOOK_NAME as name, COUNT(b.id) AS sum
+        FROM edu_borrow b inner
+        join own_org_student_param t on b.OUTID=t.outid
+        WHERE
+        b.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY b.BOOK_NO
+        ORDER BY sum DESC
+        LIMIT 10
+    </select>
+
+    <!-- 2、 借阅书籍数量top10 -相同的书，也累计次数 -->
+    <!-- 3、 借阅频次TOP10 -还得根据选择的时间计算月，然后算出每月频次：因为时间是相同的 只是排序和上面的不一样 -->
+    <select id="peopleTopList" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT t.outid,COUNT(b.id) AS sum
+        FROM edu_borrow b inner join
+        own_org_student_param t on b.OUTID=t.outid
+        WHERE
+        b.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid
+        ORDER BY sum DESC
+        LIMIT 10
+    </select>
+
+    <!-- 4、 借阅书籍类型 :全部分类 -->
+    <select id="preferenceList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT s.name,n.sum,s.code as 'dscrp'
+        FROM book_type s,
+        (
+        select count(*)
+        as sum,
+        LEFT(t.CLC_NO, 1) as 'name'
+        from
+        edu_borrow_param t
+        where t.role =1 and t.CLC_NO is not null
+        <include refid="Base_where_List"/>
+        group by LEFT(t.CLC_NO, 1)
+        ) n
+        WHERE s.code=n.name
+        order by n.sum desc
+    </select>
+
+    <!-- 4、 借阅书籍类型 :二级的“工业技术”分类下的分类 -->
+    <select id="preferenceListTwo" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT s.name,n.sum,s.code as 'dscrp'
+        FROM book_type s,
+        (
+        select count(*)
+        as sum,
+        LEFT(b.CLC_NO, 2) as 'name'
+        from
+        edu_borrow b inner join
+        own_org_student_param
+        t on b.OUTID=t.outid
+        where b.role =1 and b.CLC_NO is not
+        null
+        <include refid="Base_where_List"/>
+        group by LEFT(b.CLC_NO, 2)
+        ) n
+        WHERE s.code=n.name and s.pcode='T'
+        order by n.sum desc
+    </select>
+
+    <!-- 4、 借阅书籍类型 :所有顶级分类:选中某个分类：显示下面借书的排名 -->
+    <select id="preferenceListTop" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        select
+        k.BOOK_NAME,
+        k.bookNum,
+        k.personNum,
+        round(k.timeSum/k.bookNum, 2)
+        as 'avgtimeSum'
+        FROM (
+        select
+        COUNT(DISTINCT(b.outid)) as personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,b.BORROW_DATE,IFNULL(b.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum,
+        b.BOOK_NAME
+        from
+        edu_borrow b
+        where b.role =1 and b.CLC_NO is not null
+        <!-- 不传该参数：查询默认的全部分类的top -->
+        <if test="someCode != null and someCode != '' ">
+            and LEFT(b.CLC_NO, 1) = #{someCode}
+        </if>
+        and b.outid = #{outid}
+        group by b.BOOK_NO
+
+        ) k
+        order by k.bookNum desc
+
+    </select>
+
+
+    <!-- 4、 借阅书籍类型 :二级的“工业技术”分类下的分类:选中某个分类：显示下面借书的排名 -->
+    <select id="preferenceListTwoTop" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        select
+        k.BOOK_NAME,
+        k.bookNum,
+        k.personNum,
+        round(k.timeSum/k.bookNum, 2)
+        as 'avgtimeSum'
+        FROM (
+
+        select
+        COUNT(DISTINCT(b.outid)) as personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,b.BORROW_DATE,IFNULL(b.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum,
+        b.BOOK_NAME
+        from
+        edu_borrow b inner join
+        own_org_student_param
+        t on b.OUTID=t.outid
+        where b.role =1 and b.CLC_NO is not
+        null
+        <!-- 不传该参数：查询默认的全部分类的top -->
+        <if test="someCode != null and someCode != '' ">
+            and LEFT(b.CLC_NO, 2) = #{someCode}
+        </if>
+        <!-- 这个方法只查询“工业技术”分类下面的排名：如果没有传二级分类。默认是“工业技术” -->
+        <if test="someCode == null or someCode == '' ">
+            and LEFT(b.CLC_NO, 1) = 'T'
+        </if>
+        <include refid="Base_where_List"/>
+        group by b.BOOK_NO
+
+        ) k
+        order by k.bookNum desc
+        limit 10
+    </select>
+
+
+    <!-- 9、借阅行为概况 ：借阅人数、借阅书籍数量、平均保有时长、人均借阅数量 新增了一个上网总时长 -->
+    <select id="analysis" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        select
+        round(k.timeSum/k.bookNum, 2) as 'personNum',
+        k.bookNum,
+        round(k.timeSum/k.bookNum, 2) as 'avgtimeSum',
+        round(k.bookNum/k.personNum, 2) as 'avgbookNum',
+        k.timeSum
+        FROM (
+        SELECT
+        COUNT(DISTINCT(t.outid)) as personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,t.BORROW_DATE,IFNULL(t.RETURN_DATE,now()))/60/24,2)) AS timeSum
+        FROM `edu_borrow_param` t
+        WHERE t.role =1
+        and t.CLC_NO is not null
+        <include refid="Base_where_List"/>
+        ) k
+    </select>
+
+    <select id="borrowfeature" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT
+        SUM(a.onebooknum) as bookNum,
+        ROUND(SUM(a.onebooknum)/c.allperson,2) as avgbookNum,
+        ROUND(SUM(a.owntime)/c.allperson,2) as times,
+        ROUND(SUM(a.timesum)/c.allperson,2) as avgtimeSum
+        FROM
+        (SELECT
+        COUNT(*) AS onebooknum,
+        <choose>
+            <when test="edate != null and bdate != '' and edate != null and edate != ''">
+                COUNT(*)/ROUND(TIMESTAMPDIFF(MONTH,convert('${bdate}',date),convert('${edate}',date)),2) as owntime,
+            </when>
+            <when test="termNum != null">
+                COUNT(*)/5 as owntime,
+            </when>
+            <otherwise>
+                COUNT(*)/IF(TIMESTAMPDIFF(MONTH ,CONVERT(CONCAT(LEFT(t.class_code,2),"-09-01"),date),NOW())>46,46,
+                round(TIMESTAMPDIFF(MONTH,CONVERT(CONCAT(LEFT(t.class_code,2),"-09-01"),date),NOW()),2)) as owntime,
+            </otherwise>
+        </choose>
+        sum(round(TIMESTAMPDIFF(DAY,t.BORROW_DATE,IFNULL(t.RETURN_DATE,now())),2)) AS timesum
+        FROM `edu_borrow_param` t
+        WHERE t.role =1 and t.CLC_NO is not NULL
+        <include refid="Base_where_List"/>
+        GROUP BY t.OUTID) a,
+        (SELECT
+        count(*) as allperson
+        FROM own_org_student_type t
+        WHERE 1=1
+        <include refid="Nodate_Base_where_List"/>
+        ) c
+    </select>
+    <!-- 9-1、excl导出借阅行为概况 ：借阅人数、借阅书籍数量、平均保有时长、人均借阅数量 新增了一个上网总时长 -->
+    <select id="exclAnalysis" resultType="Map"
+            parameterType="com.ziyun.borrow.vo.Params">
+        select k.personNum,
+        k.bookNum,
+        round(k.timeSum/k.bookNum, 2) as
+        'avgtimeSum',
+        <!-- round(k.timeSum/k.personNum/k.bookNum, 2) as 'timeSum', -->
+        round(k.bookNum/k.personNum, 2) as 'avgbookNum',
+        k.timeSum,
+        k.class_code as organ
+        FROM (
+
+        SELECT
+        t.class_code,
+        COUNT(DISTINCT(b.outid)) as personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,b.BORROW_DATE,IFNULL(b.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum
+        FROM edu_borrow b inner join own_org_student_param t on
+        b.OUTID=t.outid
+        WHERE b.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY t.class_code
+        ) k
+    </select>
+
+
+    <!-- 5、 借阅时段分布- 通过对Java对日期的格式进行再次处理 -->
+    <!-- 已经还书的 -->
+    <!-- 未还书:当前时间作为还书时间，计算到当前 -->
+    <!-- <select id="timeChangeList" resultMap="ResultTimesMap" parameterType="com.ziyun.borrow.vo.Params">
+        SELECT (TO_DAYS(b.RETURN_DATE) - TO_DAYS(b.BORROW_DATE) +1) AS days, cast(DATE_FORMAT(b.BORROW_DATE,
+        '%k') as SIGNED INTEGER) AS 'bhour' ,cast(DATE_FORMAT(b.RETURN_DATE, '%k')
+        as SIGNED INTEGER) AS 'ehour' FROM edu_borrow b inner join own_org_student_param
+        t on b.OUTID=t.outid WHERE b.role =1 and b.RETURN_DATE is not null <include
+        refid="Base_where_List" /> UNION ALL SELECT (TO_DAYS(now()) - TO_DAYS(b.BORROW_DATE)
+        +1) AS days, cast(DATE_FORMAT(b.BORROW_DATE, '%k') as SIGNED INTEGER) AS
+        'bhour' ,cast(DATE_FORMAT(now(), '%k') as SIGNED INTEGER) AS 'ehour' FROM
+        edu_borrow b inner join own_org_student_param t on b.OUTID=t.outid WHERE b.role
+        =1 and b.RETURN_DATE is null <include refid="Base_where_List" /> </select> -->
+
+    <!-- 5、 借阅时段分布 new : 只统计借阅的时间点分布 -->
+    <select id="hourList" resultMap="ResultDataMap" parameterType="com.ziyun.borrow.vo.Params">
+        SELECT DATE_FORMAT(b.BORROW_DATE, '%k') AS hour, COUNT(b.outid) AS
+        sum
+        FROM edu_borrow b inner join (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status
+        FROM
+        `own_org_student_param`
+        WHERE term_num > 0)
+        t on b.OUTID=t.outid AND b.BORROW_DATE > t.starttime AND b.BORROW_DATE <![CDATA[<]]> t.endtime
+        WHERE b.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY hour
+    </select>
+    <!-- 5-1、生成excl格式的借阅时段分布。支持多班级。 new : 只统计借阅的时间点分布 -->
+    <select id="exclHourList" resultMap="ResultDataMap" parameterType="com.ziyun.borrow.vo.Params">
+        SELECT CAST(DATE_FORMAT(b.BORROW_DATE, '%k') as DECIMAL )AS hour, COUNT(b.outid) AS
+        sum,t.class_code
+        FROM edu_borrow b inner join own_org_student_param t on b.OUTID=t.outid
+        WHERE b.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY hour,t.class_code
+        ORDER BY t.school_code,t.faculty_code,t.major_code,t.class_code DESC ,hour asc
+
+    </select>
+
+    <!-- 6、借阅频次习惯 -按照周几、小时汇总:最早、最晚记录时间（用于计算周几的平均） -->
+    <select id="weekHourListTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT
+        min(b.BORROW_DATE) as 'bdate',max(b.BORROW_DATE) as 'edate'
+        FROM
+        edu_borrow b inner join own_org_student_type t on b.OUTID=t.outid
+        WHERE
+        b.role
+        =1
+        <include refid="NoTermNum_Base_where_List"/>
+    </select>
+
+    <select id="getDateByYearTerm" parameterType="com.ziyun.borrow.vo.Params" resultType="java.util.Map">
+        SELECT
+        CONVERT(starttime,CHAR),CONVERT(endtime,CHAR)
+        FROM
+        `own_org_student_param` t
+        WHERE 1=1
+        <include refid="TermNum_Base_where_List"/>
+        ORDER BY starttime
+        LIMIT 1
+    </select>
+    <!-- 6、借阅频次习惯 -按照周几、小时汇总- 通过对Java对日期的格式进行再次处理 -->
+    <select id="weekHourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT
+        DATE_FORMAT(t.BORROW_DATE, '%w') AS
+        weekindex,DATE_FORMAT(t.BORROW_DATE, '%k') AS hour, COUNT(t.outid) AS
+        sum
+        FROM `edu_borrow_param` t
+        WHERE t.role =1 and t.CLC_NO is not NULL
+        <include refid="Base_where_List"/>
+        GROUP BY weekindex, hour
+    </select>
+
+    <!-- 7.1、借阅人群分析 -按照｛男、女｝周几:统计人数:去重复 -->
+    <select id="sexWeekList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT y.sex,y.weekindex , count(y.outid) AS sum
+        from
+        (
+        SELECT
+        DATE_FORMAT(t.BORROW_DATE, '%w') AS weekindex,t.sex, t.outid
+        FROM
+        `edu_borrow_param` t
+        WHERE
+        t.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY weekindex,t.sex,t.outid ) y
+        GROUP BY y.weekindex,y.sex
+    </select>
+    <!-- 7.1、借阅人群分析 -按照｛男、女｝周几:统计人数:去重复 -->
+    <select id="getWeekListBysex" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        SELECT
+        y.sex,y.weekindex ,
+        count(y.outid) AS sum
+        from
+        (
+        SELECT
+        DATE_FORMAT(b.BORROW_DATE, '%w') AS weekindex,
+        IF(b.sex = 'F','女','男') as sex, b.outid
+        FROM
+        edu_borrow b inner join own_org_student_param t on b.OUTID=t.outid
+        WHERE
+        b.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY weekindex,b.sex,b.outid
+        ) y
+        GROUP BY y.weekindex,y.sex
+    </select>
+    <!-- 7.2、 借阅人群分析 -｛书籍类型｝：top5 -->
+    <select id="preferenceTopList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT s.name,n.sum
+        FROM book_type s,
+        (
+        select count(*) as sum,
+        LEFT(t.CLC_NO, 1) as 'name'
+        from
+        `edu_borrow_param` t
+        where t.role =1 and t.CLC_NO is not null
+        <include refid="Base_where_List"/>
+        <include refid="BorrowTime_Base_where_List"/>
+        group by LEFT(t.CLC_NO, 1)
+        limit 5
+        ) n
+        WHERE s.code=n.name
+        order by n.sum desc
+    </select>
+
+
+    <!-- 8.1、借阅数量变化趋势-按照天 :统计人数:去重复 -->
+    <select id="dayPeopleNum" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT y.datetimeStr , count(y.outid) AS sum
+        from
+        (
+        SELECT
+        DATE_FORMAT(t.BORROW_DATE, '%Y-%m-%d') as datetimeStr,t.outid
+        FROM
+        `edu_borrow_param` t
+        WHERE
+        t.role =1
+        <include refid="Base_where_List"/>
+        <include refid="borrowTime"></include>
+        GROUP BY datetimeStr,t.outid
+        ) y
+        GROUP BY y.datetimeStr
+        <include refid="Paging"></include>
+    </select>
+
+
+    <!-- 8.2、借阅数量变化趋势 :统计按照天：借阅次数 -->
+    <select id="dayBorrowNum" resultMap="ResultDataMap"
+            parameterType="com.ziyun.borrow.vo.Params">
+        SELECT DATE_FORMAT(t.BORROW_DATE, '%Y-%m-%d') as
+        datetimeStr,COUNT(t.id) AS sum
+        FROM `edu_borrow_param` t
+        WHERE t.role =1
+        <include refid="Base_where_List"/>
+        <include refid="borrowTime"></include>
+        GROUP BY datetimeStr
+        <include refid="Paging"></include>
+    </select>
+
+    <select id="borrowtrendLength" parameterType="com.ziyun.borrow.vo.Params" resultType="int">
+        SELECT
+        count(y.datetimeStr) AS sum
+        from
+        (
+        SELECT
+        DATE_FORMAT(b.BORROW_DATE, '%Y-%m-%d') as datetimeStr
+        FROM
+        edu_borrow b inner join (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status,sex
+        FROM
+        `own_org_student_param`
+        WHERE term_num > 0)
+        t on b.OUTID=t.outid AND b.BORROW_DATE > t.starttime AND b.BORROW_DATE <![CDATA[<]]> t.endtime
+        WHERE
+        b.role =1
+        <include refid="Base_where_List"/>
+        <include refid="borrowTime"></include>
+        GROUP BY datetimeStr
+        ) y
+    </select>
+    <!-- 借阅书籍类型，根据一级分类汇总 -->
+    <select id="getBorrowType" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        SELECT s.name,n.sum as value,s.code as 'types'
+        FROM book_type s,
+        (
+        select count(*)
+        as sum,
+        LEFT(t.CLC_NO, 1) as 'name'
+        from
+        edu_borrow_param t
+        where t.role =1 and t.CLC_NO is not
+        null
+        <include refid="Base_where_List"/>
+        group by LEFT(t.CLC_NO, 1)
+        ) n
+        WHERE s.code=n.name
+        order by n.sum desc
+    </select>
+    <!-- 借阅书籍类型，根据二级分类汇总。返回借阅数量，借阅数量最多的书名，人均持有时长，二级分类的名称 -->
+    <select id="getLevelTwoType" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="map">
+        SELECT
+        sum(num) as value,an.BOOK_NAME as bookname,
+        bc.name,round(sum(an.time)/c.allperson,2) as timebytotal,
+        round(sum(an.time)/pn.personnum,2) as time
+        FROM
+        (
+        SELECT
+        count(*) as num,
+        sum(IF(RETURN_DATE != "",(UNIX_TIMESTAMP(b.RETURN_DATE) -
+        UNIX_TIMESTAMP(b.BORROW_DATE))/3600/24,(UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(b.BORROW_DATE))/3600/24)) as
+        time,
+        b.BOOK_NAME,
+        b.CLC_NO
+        FROM edu_borrow b
+        inner join
+        (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status,sex
+        FROM
+        `own_org_student_param` t
+        WHERE term_num > 0
+        <include refid="Param_Base_where_List"/>
+        )
+        p on b.OUTID=p.outid AND b.BORROW_DATE > p.starttime AND b.BORROW_DATE <![CDATA[<]]> p.endtime
+        where b.role =1
+        and b.CLC_NO != ""
+        <include refid="BorrowTime_Base_where_List"/>
+        GROUP BY b.CLC_NO
+        ORDER BY num desc) an,
+        (
+        SELECT
+        code,
+        name
+        FROM book_type
+        WHERE `level` = 1
+        <if test="typeArr != null and typeArr.length > 0">
+            and pcode in
+            <foreach collection="typeArr" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        ) bc,
+        (SELECT
+        count(*) as allperson
+        FROM own_org_student_type t
+        WHERE 1=1
+        <include refid="Nodate_Base_where_List"/>
+        ) c,
+        (SELECT
+        count(DISTINCT(ac.outid)) as personnum,
+        bc.`code`
+        FROM
+        (
+        SELECT
+        b.outid,
+        b.CLC_NO
+        FROM edu_borrow b
+        inner join
+        (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status,sex
+        FROM
+        `own_org_student_param` t
+        WHERE term_num > 0
+        <include refid="Param_Base_where_List"/>
+        )
+        p on b.OUTID=p.outid AND b.BORROW_DATE > p.starttime AND b.BORROW_DATE <![CDATA[<]]> p.endtime
+        where b.role =1
+        and b.CLC_NO != ""
+        <include refid="BorrowTime_Base_where_List"/>
+        ) ac,
+        (
+        SELECT
+        concat(code,'%') as likes,
+        code
+        FROM book_type
+        WHERE `level` = 1
+        <if test="typeArr != null and typeArr.length > 0">
+            and pcode in
+            <foreach collection="typeArr" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        ) bc
+        WHERE ac.CLC_NO LIKE likes
+        GROUP BY bc.`code`) pn
+        WHERE an.CLC_NO LIKE CONCAT(bc.code,'%')
+        AND pn.code = bc.code
+        GROUP BY bc.`code`
+        ORDER BY value desc,time DESC
+    </select>
+
+    <select id="getBorrowTypeLevelTwo" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="map">
+        SELECT
+        t1.sum as value,
+        t1.BOOK_NAME AS bookname,
+        b. NAME
+        FROM
+        (
+        SELECT
+        count(1) AS sum,
+        BOOK_NAME,
+        LEFT (clc_no, 1) AS num
+        FROM
+        edu_borrow_param t
+        WHERE
+        t.role =1
+        <include refid="Base_where_List"/>
+        <include refid="BorrowTime_Base_where_List"/>
+        AND clc_no IS NOT NULL
+
+        <if test="typeArr !=null and typeArr.length >0">
+            AND LEFT(CLC_NO, 1) in
+            <foreach collection="typeArr" item="ty" open="(" close=")" separator=",">
+                #{ty}
+            </foreach>
+        </if>
+        <if test="types !=null and types !=''">
+            AND LEFT(CLC_NO, 1) = #{types}
+        </if>
+
+
+        GROUP BY
+        BOOK_NO
+        ) t1,
+        (
+        SELECT
+        NAME,
+        CODE
+        FROM
+        book_type
+        WHERE
+        1=1
+
+        <if test="typeArr !=null and typeArr.length >0">
+            AND code in
+            <foreach collection="typeArr" item="ty" open="(" close=")" separator=",">
+                #{ty}
+            </foreach>
+        </if>
+        <if test="types !=null and types !=''">
+            AND code = #{types}
+        </if>
+
+        ) b
+        WHERE
+        b. CODE = t1.num
+        ORDER BY
+        sum DESC
+    </select>
+
+    <!-- 根据term_time_dict这张表获取天数 -->
+    <select id="getTime" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="Long">
+        SELECT
+        sum(a.time)
+        FROM
+        (
+        SELECT
+        <if test="timeframe == 1">
+            round((UNIX_TIMESTAMP(now()) -UNIX_TIMESTAMP(starttime))/3600/24/30,0) as time
+        </if>
+        <if test="timeframe != 1">
+            round((UNIX_TIMESTAMP(endtime) -UNIX_TIMESTAMP(starttime))/3600/24/30,0) as time
+        </if>
+        FROM `term_time_dict`
+        WHERE semester like concat(#{semester},'%')) a
+    </select>
+    <!--获取当前的学期-->
+    <select id="getNowTerm" resultType="java.lang.String">
+        SELECT
+        DISTINCT(semester)
+        FROM
+        `outid_term_time_dict`
+        WHERE
+        NOW()>starttime and NOW() <![CDATA[<]]>endtime
+    </select>
+    <!-- 查询所有的时候的时间 -->
+    <select id="getTimes" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="Float">
+        SELECT
+        round(((UNIX_TIMESTAMP(now()) -UNIX_TIMESTAMP(min(BORROW_DATE)))/3600/24/30)*280/365,2) AS time
+        FROM `edu_borrow` b inner join
+        own_org_student_type
+        t on b.OUTID=t.outid
+        where 1=1
+        <include refid="Base_where_List"/>
+    </select>
+    <select id="getYearDate" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="float">
+        SELECT
+        #min(starttime) as starttime,DATE_FORMAT(now(),"%Y-%m-%d") as endtime,
+        ROUND((UNIX_TIMESTAMP(DATE_FORMAT(now(),"%Y-%m-%d"))-UNIX_TIMESTAMP(min(starttime)))/3600/24/30,1) as time
+        FROM
+        own_org_student_param
+        WHERE
+        first_enrollment_year = ${enrollmentYear}
+    </select>
+    <!-- 根据term_time_dict这张表获取天数 -->
+    <select id="getTimeByParams" parameterType="com.ziyun.borrow.vo.Params" resultType="Long">
+        SELECT
+        sum(a.time)
+        FROM
+        (
+        SELECT
+        <if test="timeframe == 1">
+            round((UNIX_TIMESTAMP(now()) -UNIX_TIMESTAMP(starttime))/3600/24/30,0) as time
+        </if>
+        <if test="timeframe != 1 and timeframe != null">
+            round((UNIX_TIMESTAMP(endtime) -UNIX_TIMESTAMP(starttime))/3600/24/30,0) as time
+        </if>
+        FROM `term_time_dict`
+        WHERE semester like concat(#{semester},'%')) a
+    </select>
+    <!-- 查询所有的时候的时间 -->
+    <select id="getTimesByParams" parameterType="com.ziyun.borrow.vo.Params" resultType="Long">
+        SELECT
+        round(((UNIX_TIMESTAMP(now()) -UNIX_TIMESTAMP(min(b.BORROW_DATE)))/3600/24/30)*280/365,2) AS time
+        FROM `edu_borrow` b inner join
+        own_org_student_param
+        t on b.OUTID=t.outid
+        where 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- 图书排行。支持分页功能 -->
+    <select id="getBorrowBookList" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        SELECT
+        na.BOOK_NAME as bookname,
+        na.OUTID as outid,
+        na.REDER_NAME as name,
+        na.class_code as classcode,
+        na.major_name as majorname,
+        n.personNum,
+        n.value,
+        n.time
+        FROM
+        (SELECT
+        b.BOOK_NAME,
+        b.REDER_NAME,
+        f.class_code,
+        f.major_name,
+        b.OUTID
+        FROM
+        edu_borrow b join own_org_student_param t on b.OUTID=t.outid
+        JOIN own_school_org f on f.class_code = t.class_code
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        ) na,
+        (
+        select
+        k.BOOK_NAME as bookname,
+        k.bookNum as value,
+        k.personNum,
+        round(k.timeSum/k.bookNum, 2) as 'time'
+        FROM (
+        select
+        COUNT(DISTINCT(b.outid)) as personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,b.BORROW_DATE,IFNULL(b.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum,
+        b.BOOK_NAME
+        from
+        edu_borrow b join
+        own_org_student_param
+        t on b.OUTID=t.outid
+        where b.role =1 and b.CLC_NO is not null
+        <include refid="Base_where_List"/>
+        group by b.BOOK_NO
+        ) k
+        order by k.personNum desc
+        limit 10
+        ) n
+        WHERE na.BOOK_NAME = n.bookname
+        GROUP BY na.BOOK_NAME,na.OUTID
+        <include refid="Paging"/>
+    </select>
+
+    <!-- 借阅图书排行按借阅的人数来降序排列 -->
+    <select id="getBorrowBookDetail" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        select
+        k.BOOK_NAME,
+        k.bookNum,
+        k.personNum,
+        round(k.timeSum/k.bookNum, 2)
+        as 'avgtimeSum'
+        FROM (
+        select
+        COUNT(DISTINCT(t.outid)) as personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,t.BORROW_DATE,IFNULL(t.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum,
+        t.BOOK_NAME
+        from
+        `edu_borrow_param` t
+        where t.role =1 and t.CLC_NO is not null
+        <!-- 不传该参数：查询默认的全部分类的top -->
+        <if test="someCode != null and someCode != '' ">
+            and LEFT(t.CLC_NO, 1) = #{someCode}
+        </if>
+        <include refid="Base_where_List"/>
+        group by t.BOOK_NO
+
+        ) k
+        order by k.bookNum desc,k.personNum desc,k.BOOK_NAME DESC
+        <include refid="Paging"></include>
+    </select>
+    <!-- 借阅图书排行明细的长度 -->
+    <select id="getBorrowBookDetailLength" parameterType="com.ziyun.borrow.vo.Params" resultType="int">
+        SELECT
+        count(*)
+        FROM (
+        SELECT
+        COUNT(DISTINCT(t.outid)) AS personNum ,
+        COUNT(*) AS bookNum,
+        sum(round(TIMESTAMPDIFF(MINUTE,t.BORROW_DATE,IFNULL(t.RETURN_DATE,now()))/
+        60/24,
+        2)) AS timeSum,
+        t.BOOK_NAME
+        FROM
+        `edu_borrow_param` t
+        WHERE t.role =1 AND t.CLC_NO IS NOT NULL
+        <include refid="Base_where_List"/>
+        GROUP BY t.BOOK_NO
+        ) k
+    </select>
+    <!-- 借阅数量排行 -->
+    <select id="getBorrowPeopleDetail" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="map">
+        SELECT
+        a.name,
+        a.value,
+        round((a.value/a.time),2) as frequency
+        FROM
+        (SELECT
+        <if test="termNum == null">
+            if((CONVERT(DATE_FORMAT(NOW(),"%Y"),SIGNED) - CONVERT(concat(20,LEFT(b.OUTID,2)),SIGNED) <![CDATA[<]]>
+            5),round((TIMESTAMPDIFF(MINUTE,CONVERT(concat(20,LEFT(b.OUTID,2),'-09-01'),datetime),now())/60/24/30),2),46)
+            as time,
+        </if>
+        <if test="termNum != null">
+            (SELECT
+            IF(NOW()<![CDATA[<]]>endtime,ROUND((UNIX_TIMESTAMP(NOW()) -
+            UNIX_TIMESTAMP(starttime))/3600/24/30,1),ROUND((UNIX_TIMESTAMP(endtime) -
+            UNIX_TIMESTAMP(starttime))/3600/24/30,1)) as month
+            FROM `own_org_student_param`
+            WHERE outid = b.OUTID
+            AND term_num = #{termNum}
+            ORDER BY month DESC
+            LIMIT 1)as time,
+        </if>
+        b.OUTID,
+        b.REDER_NAME as name,
+        COUNT(b.id) AS value
+        FROM edu_borrow b inner join
+        (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status,sex
+        FROM
+        `own_org_student_param` t
+        WHERE term_num > 0
+        <include refid="Param_Base_where_List"/>
+        )
+        p on b.OUTID=p.outid AND b.BORROW_DATE > p.starttime AND b.BORROW_DATE <![CDATA[<]]> p.endtime
+        WHERE
+        b.role =1
+        <include refid="BorrowTime_Base_where_List"/>
+        GROUP BY b.outid
+        ORDER BY value DESC
+        ) a
+        ORDER BY a.value DESC, round((a.value/a.time),2) DESC,a.name DESC
+        <include refid="Paging"></include>
+    </select>
+    <select id="getPeopleDetail" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="map">
+        SELECT
+        a.outid,
+        a.name,
+        a.value
+        FROM
+        (
+        SELECT
+        t.OUTID,
+        t.name AS name,
+        COUNT(t.id) AS value
+        FROM edu_borrow_param t
+        WHERE
+        t.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY t.outid
+        ORDER BY VALUE DESC
+        ) a
+        ORDER BY a.value
+        <include refid="base_order"/>
+        ,a.name DESC
+        <include refid="Paging"/>
+    </select>
+    <!-- 借阅数量排行明细分页需要的总长度 -->
+    <select id="getBorrowPeopleDetailLength" parameterType="com.ziyun.borrow.vo.ParamsStatus" resultType="int">
+        select
+        count(*)
+        from
+        ( SELECT
+        a.outid,
+        a.name,
+        a.value
+        FROM
+        (
+        SELECT
+        t.OUTID,
+        t.name AS name,
+        COUNT(t.id) AS value
+        FROM edu_borrow_param t
+        WHERE
+        t.role =1
+        <include refid="Base_where_List"/>
+        GROUP BY t.outid
+        ORDER BY VALUE DESC
+        ) a
+        ORDER BY a.value ${borrowNumSortStr},a.name DESC) b
+    </select>
+    <!-- 周借阅总数量-->
+    <select id="getWeekBorrowTotal" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        SELECT
+        DATE_FORMAT(b.BORROW_DATE,'%w') AS week,
+        count(*) as sum
+        FROM edu_borrow b inner join
+        own_org_student_param t on b.OUTID=t.outid
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY week
+        ORDER BY week
+    </select>
+
+    <select id="getWeekBorrowDetails" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        SELECT
+        SUM(a.num) as sum,
+        a.bookname,
+        a.`week` as day,
+        ROUND(sum(a.time)/d.num) as time,
+        ROUND(sum(a.time)/c.allperson) as timebytotal
+        FROM
+        (
+        select
+        count(*) as num,
+        b.BOOK_NAME as bookname,
+        b.CLC_NO as no,
+        sum(IF(RETURN_DATE != "",(UNIX_TIMESTAMP(b.RETURN_DATE) -
+        UNIX_TIMESTAMP(b.BORROW_DATE))/3600/24,(UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(b.BORROW_DATE))/3600/24)) as
+        time,
+        DATE_FORMAT(b.BORROW_DATE,"%w") as week
+        from
+        edu_borrow b inner join (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status,sex
+        FROM
+        `own_org_student_param` t
+        WHERE term_num > 0
+        <include refid="Param_Base_where_List"/>
+        )
+        p on b.OUTID=p.outid AND b.BORROW_DATE > p.starttime AND b.BORROW_DATE <![CDATA[<]]> p.endtime
+        where b.role =1 and b.CLC_NO is not null
+        <include refid="BorrowTime_Base_where_List"/>
+        group by b.CLC_NO,week
+        ORDER BY num DESC,bookname DESC ) a,
+        (SELECT
+        count(*) as allperson
+        FROM own_org_student_type t
+        WHERE 1=1
+        <include refid="Nodate_Base_where_List"/>
+        ) c,
+        (select
+        count(DISTINCT(b.outid)) as num,
+        DATE_FORMAT(b.BORROW_DATE,"%w") as week
+        from
+        edu_borrow b inner join (SELECT
+        outid,starttime,endtime,
+        enrollment_year,term_num,political_code,political_code_all,
+        class_code,impoverish,scholarship,edu_status,sex
+        FROM
+        `own_org_student_param` t
+        WHERE term_num > 0
+        <include refid="Param_Base_where_List"/>
+        )
+        p on b.OUTID=p.outid AND b.BORROW_DATE > p.starttime AND b.BORROW_DATE <![CDATA[<]]> p.endtime
+        WHERE 1=1
+        <include refid="BorrowTime_Base_where_List"/>
+        group by week
+        ORDER BY week) d
+        WHERE d.week = a.week
+        GROUP BY a.`week`
+    </select>
+    <sql id="Nodate_Base_where_List">
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.scholarship = 1
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="termNum == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="termNum != null">
+                and t.political_code = #{politicalCode}
+            </if>
+        </if>
+        <if test="enrollmentYear != null">
+            and t.enrollment_year like "%${enrollmentYear}%"
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+
+    </sql>
+
+    <!--排序-->
+    <sql id="base_order">
+        <if test="order == 'descending'">
+            DESC
+        </if>
+        <if test="order == 'ascending'">
+            ASC
+        </if>
+        <if test="order == null or order == ''">
+            DESC
+        </if>
+    </sql>
+    <sql id="Param_Base_where_List">
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.scholarship = 1
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="termNum == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="termNum != null">
+                and t.political_code = #{politicalCode}
+            </if>
+        </if>
+        <if test="enrollmentYear != null">
+            and t.enrollment_year like "%${enrollmentYear}%"
+        </if>
+        <if test="termNum != null">
+            and t.term_num = #{termNum}
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+    </sql>
+    <sql id="BorrowTime_Base_where_List">
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and t.BORROW_DATE <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and t.BORROW_DATE <![CDATA[ < ]]>
+            #{edate}
+        </if>
+    </sql>
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+
+        <if test="sex != null">and t.sex = "${sex}"</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and t.BORROW_DATE <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and t.BORROW_DATE <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.outid IN
+            (SELECT outid from own_org_student_type WHERE impoverish=1)
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+            and t.political_code_all=#{politicalCode}
+        </if>
+
+
+        <!--<if test="enrollmentYear != null ">-->
+        <!--and t.first_enrollment_year  = #{enrollmentYear}-->
+
+        <!--</if>-->
+
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+
+        <if test="termNum != null">
+            and t.term_num = #{termNum}
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+        <if test="name != null and name !=''">
+            and t.name like concat("%",#{name},"%")
+        </if>
+        <if test="outid != null and outid !=''">
+            and t.outid like "${outid}%"
+        </if>
+    </sql>
+
+    <sql id="Base_student_where_List">
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.scholarship = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+            and t.political_code_all=#{politicalCode}
+        </if>
+        --
+
+        <!--<if test="enrollmentYear != null ">-->
+        <!--and t.first_enrollment_year  = #{enrollmentYear}-->
+
+        <!--</if>-->
+
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+
+        <if test="termNum != null">
+            and t.term_num = #{termNum}
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+        <if test="name != null and name !=''">
+            and t.name like concat("%",#{name},"%")
+        </if>
+        <if test="outid != null and outid !=''">
+            and t.outid like "${outid}%"
+        </if>
+    </sql>
+
+    <!-- 动态查询条件 -->
+    <sql id="NoTermNum_Base_where_List">
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.BORROW_DATE <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.BORROW_DATE <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.impoverish = 1
+        </if>
+
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.scholarship = 1
+        </if>
+
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="termNum == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="termNum != null">
+                and t.political_code = #{politicalCode}
+            </if>
+        </if>
+        <if test="enrollmentYear != null">
+            and t.enrollment_year like "%${enrollmentYear}%"
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+    </sql>
+    <!-- 动态查询条件 -->
+    <sql id="TermNum_Base_where_List">
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.BORROW_DATE <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.BORROW_DATE <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.scholarship = 1
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="termNum == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="termNum != null">
+                and t.political_code = #{politicalCode}
+            </if>
+        </if>
+        <if test="termNum != null">
+            and t.term_num = #{termNum}
+        </if>
+        <if test="enrollmentYear != null">
+            and t.enrollment_year like "%${enrollmentYear}%"
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+    </sql>
+    <!-- 动态查询条件 -->
+    <sql id="NoBEdate_Base_where_List">
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.scholarship = 1
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="termNum == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="termNum != null">
+                and t.political_code = #{politicalCode}
+            </if>
+        </if>
+        <if test="enrollmentYear != null">
+            and t.enrollment_year like "%${enrollmentYear}%"
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status like "%${eduStatus}%"
+        </if>
+    </sql>
+    <!-- 动态查询条件 用作excl导出 -->
+    <sql id="ExclBase_where_List">
+
+        <!-- <if test="id != null"> and b.id = #{id,jdbcType=INTEGER} </if> -->
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.BORROW_DATE <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.BORROW_DATE <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="timeframe == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="timeframe == 1">
+                and t.political_code_thisterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 2">
+                and t.political_code_lastterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 3">
+                and t.political_code_lastyear=#{politicalCode}
+            </if>
+        </if>
+        <!-- 根据学期查询 -->
+        <!--<if test="semester != null and semester!=''">
+            and rc.semester = #{semester, jdbcType=VARCHAR}
+        </if>-->
+    </sql>
+
+
+    <!-- +++++++++++业务查询+++++++++++ -->
+
+    <!--分页条件 -->
+    <sql id="Paging">
+        <if test="start!=null">limit #{start
+			,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <sql id="borrowTime">
+        <if test="borrowDate != null and borrowDate!=''">
+            AND DATE_FORMAT(b.BORROW_DATE, '%Y-%m-%d') =#{borrowDate}
+        </if>
+
+    </sql>
+
+
+    <sql id="Base_Column_List">
+        id, OUTID, REDER_NAME, SEX, DEPT, BOOK_NO, BOOK_NAME,
+        BORROW_DATE,
+        RETURN_DATE, CLC_NO,
+        CLASSIFY, TARGET
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="java.lang.Integer">
+        select
+        <include refid="Base_Column_List"/>
+        from edu_borrow
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+        delete from
+        edu_borrow
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.borrow.model.EduBorrow">
+        insert into edu_borrow (id,
+        OUTID, REDER_NAME,
+        SEX, DEPT, BOOK_NO, BOOK_NAME,
+        BORROW_DATE,
+        RETURN_DATE, CLC_NO,
+        CLASSIFY, TARGET)
+        values (#{id,jdbcType=INTEGER},
+        #{outid,jdbcType=VARCHAR},
+        #{rederName,jdbcType=VARCHAR},
+        #{sex,jdbcType=CHAR}, #{dept,jdbcType=VARCHAR},
+        #{bookNo,jdbcType=VARCHAR},
+        #{bookName,jdbcType=VARCHAR},
+        #{borrowDate,jdbcType=TIMESTAMP}, #{returnDate,jdbcType=TIMESTAMP},
+        #{clcNo,jdbcType=VARCHAR},
+        #{classify,jdbcType=VARCHAR},
+        #{target,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.borrow.model.EduBorrow">
+        insert into edu_borrow
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="outid != null">
+                OUTID,
+            </if>
+            <if test="rederName != null">
+                REDER_NAME,
+            </if>
+            <if test="sex != null">
+                SEX,
+            </if>
+            <if test="dept != null">
+                DEPT,
+            </if>
+            <if test="bookNo != null">
+                BOOK_NO,
+            </if>
+            <if test="bookName != null">
+                BOOK_NAME,
+            </if>
+            <if test="borrowDate != null">
+                BORROW_DATE,
+            </if>
+            <if test="returnDate != null">
+                RETURN_DATE,
+            </if>
+            <if test="clcNo != null">
+                CLC_NO,
+            </if>
+            <if test="classify != null">
+                CLASSIFY,
+            </if>
+            <if test="target != null">
+                TARGET,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="outid != null">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="rederName != null">
+                #{rederName,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                #{sex,jdbcType=CHAR},
+            </if>
+            <if test="dept != null">
+                #{dept,jdbcType=VARCHAR},
+            </if>
+            <if test="bookNo != null">
+                #{bookNo,jdbcType=VARCHAR},
+            </if>
+            <if test="bookName != null">
+                #{bookName,jdbcType=VARCHAR},
+            </if>
+            <if test="borrowDate != null">
+                #{borrowDate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="returnDate != null">
+                #{returnDate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="clcNo != null">
+                #{clcNo,jdbcType=VARCHAR},
+            </if>
+            <if test="classify != null">
+                #{classify,jdbcType=VARCHAR},
+            </if>
+            <if test="target != null">
+                #{target,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.borrow.model.EduBorrow">
+        update edu_borrow
+        <set>
+            <if test="outid != null">
+                OUTID = #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="rederName != null">
+                REDER_NAME = #{rederName,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                SEX = #{sex,jdbcType=CHAR},
+            </if>
+            <if test="dept != null">
+                DEPT = #{dept,jdbcType=VARCHAR},
+            </if>
+            <if test="bookNo != null">
+                BOOK_NO = #{bookNo,jdbcType=VARCHAR},
+            </if>
+            <if test="bookName != null">
+                BOOK_NAME = #{bookName,jdbcType=VARCHAR},
+            </if>
+            <if test="borrowDate != null">
+                BORROW_DATE = #{borrowDate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="returnDate != null">
+                RETURN_DATE = #{returnDate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="clcNo != null">
+                CLC_NO = #{clcNo,jdbcType=VARCHAR},
+            </if>
+            <if test="classify != null">
+                CLASSIFY = #{classify,jdbcType=VARCHAR},
+            </if>
+            <if test="target != null">
+                TARGET = #{target,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.borrow.model.EduBorrow">
+        update edu_borrow
+        set OUTID = #{outid,jdbcType=VARCHAR},
+        REDER_NAME =
+        #{rederName,jdbcType=VARCHAR},
+        SEX = #{sex,jdbcType=CHAR},
+        DEPT =
+        #{dept,jdbcType=VARCHAR},
+        BOOK_NO = #{bookNo,jdbcType=VARCHAR},
+        BOOK_NAME = #{bookName,jdbcType=VARCHAR},
+        BORROW_DATE =
+        #{borrowDate,jdbcType=TIMESTAMP},
+        RETURN_DATE =
+        #{returnDate,jdbcType=TIMESTAMP},
+        CLC_NO = #{clcNo,jdbcType=VARCHAR},
+        CLASSIFY = #{classify,jdbcType=VARCHAR},
+        TARGET =
+        #{target,jdbcType=VARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+
+    <!-- 借阅人群学生列表 -->
+    <select id="getBorrowStudentList" parameterType="com.ziyun.borrow.vo.Params" resultType="map">
+        SELECT
+        t.outid,
+        t. name,
+        t.school_name,
+        t.faculty_name,
+        t.major_name,
+        t.class_code,
+        COUNT(t.outid) AS sum
+        FROM
+        edu_borrow_param t
+        INNER JOIN own_org_student_type o ON o.outid = t.outid
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        t.outid
+        UNION
+        (
+        SELECT
+        t.outid,
+        t. NAME,
+        t.school_name,
+        t.faculty_name,
+        t.major_name,
+        t.class_code,
+        0 AS sum
+        FROM
+        own_org_student_type t
+        WHERE
+        outid NOT IN (
+        SELECT
+        outid
+        FROM
+        edu_borrow_param t
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        outid
+        )
+        <include refid="Base_student_where_List"/>
+        )
+        ORDER BY
+        outid DESC
+        <include refid="Paging"></include>
+    </select>
+
+    <!-- 统计借阅人群学生列表 长度 -->
+    <select id="getBorrowStudentCount" parameterType="com.ziyun.borrow.vo.Params" resultType="java.lang.Long">
+        select count(1) FROM (
+        SELECT
+        t.outid,
+        t. NAME,
+        t.school_name,
+        t.faculty_name,
+        t.major_name,
+        COUNT(t.outid) AS sum
+        FROM
+        edu_borrow_param t
+        LEFT JOIN own_org_student_type o ON o.outid = t.outid
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        t.outid
+        UNION
+        (
+        SELECT
+        t.outid,
+        t. NAME,
+        t.school_name,
+        t.faculty_name,
+        t.major_name,
+        0 AS sum
+        FROM
+        own_org_student_type t
+        WHERE
+        outid NOT IN (
+        SELECT
+        outid
+        FROM
+        edu_borrow_param t
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        outid
+        )
+        <include refid="Base_student_where_List"/>
+        )
+        ORDER BY
+        outid DESC
+        ) aa
+    </select>
+
+</mapper>

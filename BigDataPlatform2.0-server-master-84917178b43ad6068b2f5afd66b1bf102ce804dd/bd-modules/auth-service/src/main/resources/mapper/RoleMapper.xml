@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.auth.mapper.RoleMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.common.entity.Role">
+        <!--
+          WARNING - @mbg.generated
+        -->
+        <id column="role_id" jdbcType="BIGINT" property="id"/>
+        <result column="role_name" jdbcType="VARCHAR" property="roleName"/>
+        <result column="create_user_id" jdbcType="BIGINT" property="createUserId"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="remark" jdbcType="VARCHAR" property="remark"/>
+        <result column="is_super_role" jdbcType="VARCHAR" property="isSuperRole"/>
+        <result column="create_role_id" jdbcType="VARCHAR" property="createRoleId"/>
+        <result column="user_id" jdbcType="VARCHAR" property="userId"/>
+        <result column="role_id" jdbcType="BIGINT" property="roleId"/>
+    </resultMap>
+
+    <!--分页设置-->
+    <sql id="base_limit">
+        limit #{start},#{limit}
+    </sql>
+    <!--根据用户id 查询角色列表-->
+    <select id="listRoles" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT role_id,role_name,remark,is_super_role,create_time,update_time,create_user_id,create_role_id
+        from auth_role_2
+        WHERE role_type =0 AND is_super_role !=1
+        <if test="createUserId != null and createUserId != ''">
+            and create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null and createRoleId != ''">
+            and create_role_id = #{createRoleId}
+        </if>
+        <if test="roleName != null and roleName != ''">
+            and role_name like concat("%",#{roleName},"%")
+        </if>
+        ORDER BY create_time DESC
+        <include refid="base_limit"/>
+    </select>
+
+    <select id="listRolesSize" parameterType="com.ziyun.common.entity.Role" resultType="int">
+        SELECT count(1) AS num from auth_role_2 WHERE role_type =0 AND is_super_role !=1
+        <if test="createUserId != null and createUserId != ''">
+            and create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null and createRoleId != ''">
+            and create_role_id = #{createRoleId}
+        </if>
+        <if test="roleName != null and roleName != ''">
+            and role_name like concat("%",#{roleName},"%")
+        </if>
+    </select>
+
+    <!--添加角色-->
+    <insert id="saveRole" parameterType="com.ziyun.common.entity.Role" useGeneratedKeys="true" keyProperty="roleId">
+        INSERT INTO auth_role_2(role_name,create_user_id,create_role_id,remark)
+        VALUE (#{roleName},#{createUserId},#{createRoleId},#{remark})
+    </insert>
+
+
+    <!--根据角色id，删除角色（支持批量删除）-->
+    <delete id="deleteRoles" parameterType="com.ziyun.common.entity.Role">
+        DELETE FROM auth_role_2
+        WHERE 1=1
+        <if test="roleId != null">
+            and role_id = #{roleId}
+        </if>
+        <if test="ids != null">
+            AND role_id in
+            <foreach collection="ids" open="(" close=")" separator="," item="id">
+                #{id}
+            </foreach>
+        </if>
+        <if test="createUserId != null ">
+            and create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null ">
+            and create_role_id = #{createRoleId}
+        </if>
+
+    </delete>
+
+    <!--根据角色名 ，查询角色-->
+    <select id="listRolesByName" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT
+        role_id,
+        role_name,
+        create_user_id,
+        remark,
+        create_time,
+        update_time,
+        template_id
+        FROM
+        auth_role_2 WHERE role_name LIKE concat("%",#{roleName},"%")
+    </select>
+
+    <!--角色下添加用户列表，往auth_user_role表添加数据-->
+    <insert id="addUser" parameterType="com.ziyun.common.entity.Role">
+        insert into auth_user_role_2(user_id,role_id)
+        values
+        <foreach collection="userIds" separator="," item="userId">
+            (#{userId},#{id})
+        </foreach>
+    </insert>
+
+    <!--删除角色下的用户列表,根据role_id，和userId在auth_user_role表删除数据-->
+    <delete id="deleteUser" parameterType="com.ziyun.common.entity.Role">
+        delete from auth_user_role_2
+        where role_id=#{id} and user_id in
+        <foreach collection="userIds" item="userId" open="(" close=")" separator=",">
+            #{userId}
+        </foreach>
+    </delete>
+
+    <!--查询用户下的角色-->
+    <select id="userRelationRole" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT role.role_id,role_name from auth_user_role_2 ur INNER JOIN auth_role_2 role on ur.role_id = role.role_id
+        WHERE user_id= #{userId}
+    </select>
+
+    <!--查询在该用户，该角色下所创建的角色-->
+    <select id="getRoleByUser" parameterType="com.ziyun.common.entity.User" resultMap="BaseResultMap">
+        SELECT
+        role.role_id,role.role_name
+        FROM
+        auth_role_2 role
+        <!-- 查询角色去掉超级管理员-->
+        WHERE 1= 1 and is_super_role !=1
+        <if test="createUserId != null and createUserId !='' ">
+            AND role.create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null and createRoleId !=''">
+            AND role.create_role_id = #{createRoleId}
+        </if>
+        <!-- 使用likes 变量 来替代roleName，根据角色名模糊查询-->
+        <if test="likes != null and likes !=''">
+            and role.role_name like concat("%",#{likes},"%")
+        </if>
+        order by create_time desc
+    </select>
+
+    <!--修改角色-->
+    <update id="updateRole" parameterType="com.ziyun.common.entity.Role">
+        UPDATE auth_role_2
+        SET
+        <trim suffixOverrides=",">
+            <if test="roleName != null and roleName != ''">
+                role_name = #{roleName},
+            </if>
+            <!-- 描述是可以为 空的 -->
+            remark = #{remark},
+        </trim>
+        WHERE role_id = #{roleId}
+    </update>
+
+    <!--查询当前用户，当前角色创建的角色，与当前类 listRoles()方法不同的是，当前方法查询包含默认模板-->
+    <select id="getRolesById" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT role_id,role_name,create_user_id,create_role_id,is_super_role FROM auth_role_2
+        WHERE
+        is_super_role =0
+        <if test="createRoleId != null and createRoleId != '' and createUserId != null and createUserId != '' ">
+            AND ( (create_role_id = #{createRoleId} AND create_user_id = #{createUserId} ) OR role_type = 1)
+        </if>
+
+        <if test="roleName != null and roleName != ''">
+            and role_name like concat("%",#{roleName},"%")
+        </if>
+    </select>
+
+    <!--查询用户所拥有的角色，查询条件userId-->
+    <select id="findRoleByUserid" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT
+        role.*
+        FROM
+        auth_user_2 USER
+        INNER JOIN auth_user_role_2 user_role ON `user`.user_id = user_role.user_id
+        INNER JOIN auth_role_2 role ON user_role.role_id = role.role_id
+
+        WHERE `user`.user_id= #{id}
+    </select>
+
+    <!--根据用户名，查询对应的角色-->
+    <select id="findRoleByUser" parameterType="com.ziyun.common.entity.User" resultMap="BaseResultMap">
+        SELECT
+        role.* , user.user_id
+        FROM
+        auth_user_2 USER
+        INNER JOIN auth_user_role_2 user_role ON `user`.user_id = user_role.user_id
+        INNER JOIN auth_role_2 role ON role.role_id = user_role.role_id
+        WHERE
+        BINARY `user`.username = #{username}
+    </select>
+
+    <insert id="insertRoleAndDataPermission">
+        insert into auth_role_data_permission(role_id,data_permission_id)
+        VALUE
+        <trim suffixOverrides=",">
+            <foreach collection="dataPermissionId" item="data">
+                (#{roleId},#{data}),
+            </foreach>
+        </trim>
+    </insert>
+
+    <insert id="insertRoleAndFuncPermission">
+        insert into auth_role_func_permission(role_id,func_permission_id)
+        VALUE
+        <trim suffixOverrides=",">
+            <foreach collection="funcPermissionId" item="func">
+                (#{roleId},#{func}),
+            </foreach>
+        </trim>
+    </insert>
+
+    <!-- 根据数据权限集合查询所有相关角色 -->
+    <select id="selectRoleByDataPermIds" parameterType="java.lang.Long" resultType="java.lang.Long">
+        select DISTINCT t1.role_id from auth_role_2 t1
+        INNER JOIN auth_role_data_permission t2 on t1.role_id = t2.role_id
+        WHERE 1 = 1 and t1.is_super_role = 0
+        <if test="ids != null">
+            and t2.data_permission_id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+    </select>
+    <!-- 根据功能权限集合查询所有相关角色 -->
+    <select id="selectRoleByFuncPermIds" parameterType="java.lang.Long" resultType="java.lang.Long">
+        select DISTINCT t1.role_id from auth_role_2 t1
+        INNER JOIN auth_role_func_permission t2 on t1.role_id = t2.role_id
+        WHERE 1 = 1 and t1.is_super_role = 0
+        <if test="ids != null">
+            and t2.func_permission_id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="selectByRoleByParam" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT role_id,role_name from auth_role_2 WHERE
+        1=1
+        <if test="createUserId != null and createUserId != ''">
+            AND create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null and createRoleId != ''">
+            and create_role_id = #{createRoleId}
+        </if>
+        <if test="roleName != null and roleName !=''">
+            and binary role_name = #{roleName}
+        </if>
+    </select>
+
+    <!--根据父级角色id查询子角色列表-->
+    <select id="selectRoleByParentId" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT role_id,role_name,remark,is_super_role,create_time,update_time
+        from auth_role_2
+        WHERE role_type =0 AND is_super_role !=1
+        <if test="parentId != null">
+            and create_role_id = #{parentId}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <!--根据角色id列表查询角色-->
+    <select id="selectByIds" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        SELECT role_id,role_name,remark,is_super_role,create_time,update_time,create_user_id,create_role_id
+        from auth_role_2
+        WHERE role_type =0 AND is_super_role !=1
+        <if test="ids != null">
+            and role_id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+        ORDER BY create_time DESC
+    </select>
+</mapper>

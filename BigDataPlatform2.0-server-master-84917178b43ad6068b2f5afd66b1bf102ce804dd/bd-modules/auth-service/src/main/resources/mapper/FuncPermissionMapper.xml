@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.auth.mapper.FuncPermissionMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.common.entity.FuncPermission">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="code" jdbcType="VARCHAR" property="code"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="parent_id" jdbcType="BIGINT" property="parentId"/>
+        <result column="level" jdbcType="INTEGER" property="level"/>
+        <result column="menu_type" jdbcType="INTEGER" property="menuType"/>
+        <result column="show_type" jdbcType="INTEGER" property="showType"/>
+        <result column="type" jdbcType="INTEGER" property="type"/>
+        <result column="url" jdbcType="VARCHAR" property="url"/>
+        <result column="description" jdbcType="VARCHAR" property="description"/>
+        <result column="order_num" jdbcType="INTEGER" property="orderNum"/>
+        <result column="status" jdbcType="INTEGER" property="status"/>
+        <result column="deleted" jdbcType="INTEGER" property="deleted"/>
+        <result column="creator" jdbcType="VARCHAR" property="creator"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="value" jdbcType="VARCHAR" property="value"/>
+        <result column="label" jdbcType="VARCHAR" property="label"/>
+    </resultMap>
+
+    <resultMap id="ResultDataMap" type="com.ziyun.auth.model.FuncPermissionTree">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="code" jdbcType="VARCHAR" property="code"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="parent_id" jdbcType="BIGINT" property="parentId"/>
+        <result column="url" jdbcType="VARCHAR" property="url"/>
+        <result column="description" jdbcType="VARCHAR" property="description"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+
+    <!-- 获得树形功能权限 -->
+    <select id="getFuncPermissionTree" parameterType="java.util.Map" resultMap="BaseResultMap">
+        SELECT
+        t1.id,
+        t1.code,
+        t1.name,
+        t1.parent_id,
+        t1.level,
+        t1.menu_type,
+        t1.url,
+        t1.description,
+        t1.order_num,
+        t1.status
+        FROM
+        auth_func_permission_copy t1
+        <if test="logonIsSuperAdmin == null">
+            LEFT JOIN
+            auth_role_func_permission t2 on t1.id = t2.func_permission_id
+        </if>
+        WHERE t1.deleted = 1 and t1.menu_type != 9
+        <if test="status != null">
+            and t1.status = #{status}
+        </if>
+        <if test="privilege != null">
+            and t1.privilege = #{privilege}
+        </if>
+        <if test="logonIsSuperAdmin == null and logonRoleId != null">
+            and t2.role_id = #{logonRoleId}
+        </if>
+        ORDER BY t1.parent_id,t1.order_num
+    </select>
+
+    <!-- 根据parentId查询下一个排序号 -->
+    <select id="getNextOrderNumByParentId" parameterType="java.lang.Long" resultType="java.lang.Integer">
+        select IFNULL(MAX(order_num),0)+1
+        from auth_func_permission_copy
+        WHERE deleted = 1 and menu_type != 9 and parent_id = #{parentId}
+    </select>
+
+    <!--根据用户id，查询所拥有的方法权限-->
+    <select id="selectPermissionByUser" parameterType="java.lang.Long" resultMap="ResultDataMap">
+    SELECT
+        func_permission_id,
+        func_permission_name,
+        func_permission_url,
+        func_permission_desc,
+        create_time,
+        update_time,
+        perms,
+        parent_id
+    FROM
+        auth_func_permission
+    WHERE
+        func_permission_id IN (
+            SELECT
+                func_permission_id
+            FROM
+                auth_permission_template
+            WHERE
+                template_id IN (
+                    SELECT
+                        template_id
+                    FROM
+                        auth_role
+                    WHERE
+                        role_id IN (
+                            SELECT
+                                role_id
+                            FROM
+                                auth_user_role
+                            WHERE
+                                user_id = #{userId}
+                        )
+                )
+        )
+    </select>
+
+    <!--根据模板id，查对应权限列表-->
+    <select id="listFuncPermissions" parameterType="java.lang.Long" resultMap="BaseResultMap">
+    SELECT
+        func_permission_id,
+        func_permission_name,
+        func_permission_url,
+        func_permission_desc,
+        type,
+        parent_id,
+        create_time,
+        update_time
+    FROM
+        auth_func_permission
+    WHERE
+        func_permission_id IN (
+            SELECT
+                func_permission_id
+            FROM
+                auth_permission_template
+            WHERE
+                template_id = #{id}
+        )
+    </select>
+
+    <!--查询该角色下的功能权限-->
+    <select id="getFuncPermissionByRole" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT
+        func_permission.*
+        FROM
+        auth_role_func_permission role_func_permission
+        INNER JOIN auth_func_permission_copy func_permission ON role_func_permission.func_permission_id =
+        func_permission.id
+
+        WHERE 1 = 1 and func_permission.deleted = 1 and func_permission.status = 1 and func_permission.menu_type != 9
+        <if test="id != null and id != ''">
+            and role_func_permission.role_id = #{roleId}
+        </if>
+        order by func_permission.parent_id,func_permission.order_num
+    </select>
+
+
+    <insert id="saveFuncPermission" parameterType="com.ziyun.common.entity.Role">
+        INSERT INTO auth_role_func_permission (role_id,func_permission_id) VALUE
+        <trim suffixOverrides=",">
+            <foreach collection="funcPermissionId" item="funcId">
+                (#{roleId},#{funcId}),
+            </foreach>
+        </trim>
+    </insert>
+
+    <!-- 根据角色id查询角色功能权限 -->
+    <select id="selectRoleFuncByRole" parameterType="com.ziyun.common.entity.Role" resultType="java.lang.Long">
+        SELECT t1.func_permission_id
+        FROM auth_role_func_permission t1
+        INNER JOIN auth_func_permission_copy t2 on t1.func_permission_id = t2.id
+        WHERE 1 = 1
+        <if test="roleId != null">
+            and t1.role_id = #{roleId}
+        </if>
+        <if test="ids != null">
+            AND t1.role_id in
+            <foreach collection="ids" open="(" close=")" separator="," item="id">
+                #{id}
+            </foreach>
+        </if>
+    </select>
+
+    <!-- 根据角色id查询角色功能权限id -->
+    <select id="selectFuncPermByRole" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        select t1.id,t1.parent_id from auth_func_permission_copy t1
+        INNER JOIN auth_role_func_permission t2 on t1.id = t2.func_permission_id
+        where t1.deleted = 1 and t1.status = 1
+        <if test="roleId != null">
+            and t2.role_id = #{roleId}
+        </if>
+    </select>
+
+    <!--根据role_id，删除角色功能权限中间表-->
+    <delete id="deleteByRole" parameterType="com.ziyun.common.entity.Role">
+        DELETE FROM auth_role_func_permission
+        WHERE 1 = 1
+        <if test="roleId != null">
+            and role_id = #{roleId}
+        </if>
+        <if test="ids != null">
+            AND role_id in
+            <foreach collection="ids" open="(" close=")" separator="," item="id">
+                #{id}
+            </foreach>
+        </if>
+    </delete>
+
+    <!-- 根据角色id，权限列表删除角色功能权限关系 -->
+    <delete id="deleteRoleFunc">
+        DELETE FROM auth_role_func_permission
+        WHERE role_id = #{roleId}
+        <if test="funcList != null">
+            and func_permission_id in
+            <foreach collection="funcList" open="(" close=")" separator="," item="func">
+                #{func}
+            </foreach>
+        </if>
+    </delete>
+
+    <!-- 根据上级id查询权限菜单列表 -->
+    <select id="selectPermissionByParent" parameterType="java.util.Map" resultMap="BaseResultMap">
+        SELECT
+        t1.id,
+        t1.code,
+        t1.name,
+        t1.parent_id,
+        t1.level,
+        t1.menu_type,
+        t1.url,
+        t1.order_num,
+        0 as type
+        FROM auth_func_permission_copy t1
+        <if test="logonIsSuperAdmin == null">
+            LEFT JOIN
+            auth_role_func_permission t2 on t1.id = t2.func_permission_id
+        </if>
+        WHERE t1.deleted = 1 and t1.status = 1 and (t1.menu_type = 0 or t1.menu_type = 1) and find_in_set(t1.id,
+        getFuncPermChild(#{parentId}))
+        <if test="logonIsSuperAdmin == null and logonRoleId != null">
+            and t2.role_id = #{logonRoleId}
+        </if>
+        ORDER BY t1.parent_id,t1.order_num
+    </select>
+
+    <!-- 查询图表库权限菜单树 -->
+    <select id="selectPermissionOfChart" parameterType="java.util.Map" resultMap="BaseResultMap">
+        SELECT
+            id,
+            code as value,
+            name as label,
+            parent_id,
+            level,
+            menu_type,
+            url,
+            order_num
+        FROM auth_func_permission_copy
+        WHERE deleted = 1 and status = 1 and (menu_type = 0 or menu_type = 1) and show_type = 0 and find_in_set(id, getFuncPermChild(#{parentId}))
+        ORDER BY parent_id,order_num
+    </select>
+
+    <!-- 修改功能权限状态 -->
+    <update id="updateStatusIncludeChild" parameterType="com.ziyun.common.entity.FuncPermission">
+        UPDATE auth_func_permission_copy
+        SET status = #{status}
+        WHERE deleted = 1 and find_in_set(id, getFuncPermChild(#{id}))
+    </update>
+
+    <!-- 根据父级查询所有需要修改状态的权限(包括所有子节点)，和updateStatusIncludeChild操作的数据一致 -->
+    <select id="selectPermByUpdateStatus" parameterType="com.ziyun.common.entity.FuncPermission"
+            resultType="java.lang.Long">
+        select id
+        from auth_func_permission_copy
+        WHERE deleted = 1 and status != #{status} and find_in_set(id, getFuncPermChild(#{id}))
+    </select>
+
+    <!-- 根据参数修改权限状态（参数包括：状态、权限ID集合） -->
+    <update id="updateStatus" parameterType="java.util.Map">
+        UPDATE auth_func_permission_copy
+        SET status = #{status}
+        WHERE deleted = 1
+        <if test="roleIds != null">
+            and id IN
+            <foreach collection="roleIds" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+    </update>
+
+    <!-- 查询所有有效权限 -->
+    <select id="getAllValidPermissions" resultMap="BaseResultMap">
+        SELECT
+        code,url
+        FROM auth_func_permission_copy
+        WHERE deleted = 1 and status = 1 and url is not null
+    </select>
+</mapper>

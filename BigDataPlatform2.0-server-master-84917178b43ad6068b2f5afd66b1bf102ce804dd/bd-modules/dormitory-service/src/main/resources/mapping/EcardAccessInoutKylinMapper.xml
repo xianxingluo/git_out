@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.dormitory.mapper.EcardAccessInoutKylinMapper">
+
+    <select id="listDormInOutFlows" resultType="Map" parameterType="com.ziyun.common.model.Params">
+        SELECT
+        ar.day_id,
+        ar.ioflag,
+        count(*) as num
+        FROM t_access_record_second ar
+        JOIN own_org_student_type t on ar.outid = t.outid
+        WHERE 1=1
+        <include refid="base_where_condition"/>
+        GROUP BY ar.day_id,ar.ioflag
+        ORDER BY ar.day_id
+    </select>
+
+    <select id="listDormInOutFlowsAll" resultType="Map" parameterType="com.ziyun.common.model.Params">
+        SELECT
+        ar.ioflag,
+        count(*) as num
+        FROM access_record_second ar
+        JOIN own_org_student_type t on ar.outid = t.outid
+        WHERE 1=1
+        <include refid="base_where_condition"/>
+        GROUP BY ar.ioflag
+    </select>
+
+    <select id="lateRatioKylin" parameterType="com.ziyun.common.model.Params" resultType="map">
+        select
+        round(sum(bc.onetime)/60,0) as times,
+        bc.num,
+        count(bc.onetime) as pnum,
+        bc.num*count(bc.onetime) as number
+        from
+        (select
+        count(*) as num,
+        sum(times) as onetime
+        from
+        (select
+        a.outid,
+        max(a.seconds_id) as times
+        from
+        t_access_record_second a INNER JOIN own_org_student_type t ON a.outid = t.outid
+        where a.seconds_id > 0
+        <include refid="base_where_condition_byparam"/>
+        group by a.day_id,a.outid) c
+        group by c.outid )bc
+        group by bc.num
+        order by bc.num asc
+    </select>
+    <select id="lateRatio" parameterType="com.ziyun.common.model.Params" resultType="map">
+        select
+        round(sum(bc.onetime)/60,0) as times,
+        bc.num,
+        count(bc.onetime) as pnum,
+        bc.num*count(bc.onetime) as number
+        from
+        (select
+        count(*) as num,
+        sum(times) as onetime
+        from
+        (select
+        t.outid,
+        max(a.seconds_id) as times
+        from
+        t_access_record_second a inner join own_org_student_type t on a.outid=t.outid
+        where a.seconds_id > 0
+        <include refid="base_where_condition_byparam"/>
+        group by a.day_id,t.outid) a
+        group by a.outid )bc
+        group by bc.num
+        order by bc.num asc
+    </select>
+    <select id="getLateStudnet" parameterType="com.ziyun.common.model.ParamsStatus" resultType="map">
+        select
+        t1.outid,t1.school_name,t1.name,t1.faculty_name,t1.major_name,t1.class_code
+        from
+        own_org_student_type t1
+        where t1.outid in
+        (select
+        b.outid
+        from
+        (select
+        t.outid,t.class_code,a.day_id
+        from
+        t_access_record_second a inner join own_org_student_type t on a.outid=t.outid
+        where a.seconds_id > 0 and a.ioflag = 0
+        <include refid="base_where_condition_byparam"/>
+        group by t.outid,t.class_code,a.day_id )b
+        group by b.outid,b.class_code
+        having count(*)${lateTime})
+        order BY t1.outid desc
+    </select>
+    <select id="mybeLate" parameterType="com.ziyun.common.model.Params" resultType="map">
+        select
+        count(*) as num,
+        bc.days
+        from
+        (select
+        substring(a.latetemp,1,10) as days
+        from
+        maybe_late a inner join own_org_student_type t on a.outid=t.outid
+        where a.opdt > a.acctstarttime
+        <include refid="base_where_condition_byparam"></include>
+        group by a.latetemp) bc
+        group by bc.days
+        ORDER BY bc.days
+        <include refid="Paging"/>
+    </select>
+    <select id="mybeLatesize" parameterType="com.ziyun.common.model.Params" resultType="int">
+        select
+        count(*)
+        from
+        (select
+        count(*) as num
+        from
+        (select
+        substring(latetemp,1,10) as days
+        from
+        view_access_record_may_late t
+        where t.opdt > t.acctstarttime
+        <include refid="base_where_condition_byparam"></include>
+        group by t.latetemp) bc
+        group by bc.days)bd
+    </select>
+    <select id="getDormPeak" parameterType="com.ziyun.common.model.Params" resultType="String">
+        select
+        substring(cast(t.day_hour as varchar),1,2) as hours
+        from
+        view_dorm_summarize_times t
+        where 1=1
+        <include refid="summarize_where_condition"/>
+        group by t.day_hour
+        order by count(*) desc
+        limit 1
+    </select>
+    <select id="getDormTotalLate" parameterType="com.ziyun.common.model.Params" resultType="int">
+        select
+        count(1)
+        from
+        (select
+        t.outid
+        from
+        t_access_record_second a inner join own_org_student_type t on a.outid=t.outid
+        where a.seconds_id > 0
+        <include refid="base_where_condition_byparam"/>
+        group by t.outid,a.day_id) e
+    </select>
+    <select id="getInOutCount" parameterType="com.ziyun.common.model.Params" resultType="map">
+        select
+        a.ioflag,count(1) num
+        from
+        t_access_record_second a inner join own_org_student_type t on a.outid=t.outid
+        where 1 = 1
+        <include refid="base_where_condition_byparam"/>
+        group by a.ioflag
+    </select>
+    <!-- 基础条件： own_org_student_type -->
+    <sql id="base_where_condition">
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and ar.day_id <![CDATA[ >= ]]> '${bdate}'
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and ar.day_id <![CDATA[ < ]]> '${edate}'
+        </if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级多选-->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                '${item}'
+            </foreach>
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.scholarship = ${scholarship}
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.impoverish = ${impoverish}
+        </if>
+        <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+        <if test="politicalCode != null">
+
+            and t.political_code_all = ${politicalCode}
+
+        </if>
+
+        <!-- 选择在校期间时，如果学期字段为空，则查询term_num不为0（即在校）的数据 -->
+        <if test="termtype != null and termtype == 1">
+            <if test="termNum == null">
+                and ar.term_num != 0
+            </if>
+        </if>
+        <!-- 选择放假期间时，查询term_num为0的数据。（这里与学期字段有冲突，如果查某个学期的放假期间是不会有数据的） -->
+        <if test="termtype != null and termtype == 2">
+            and ar.term_num = 0
+        </if>
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.first_enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+
+        <if test="termNum != null">
+            and ar.term_num = ${termNum}
+        </if>
+        <if test="eduStatus != null">
+            and t.edu_status like '%${eduStatus}%'
+        </if>
+        <if test="name != null and name !=''">
+            and t.name like '%${name}%'
+        </if>
+        <if test="outid != null and outid !=''">
+            and t.outid like '${outid}%'
+        </if>
+        <if test="sex !=null and sex != '' ">
+            AND t.sex=#{sex}
+        </if>
+    </sql>
+
+    <!-- 采用： own_org_student_param -->
+    <sql id="base_where_condition_byparam">
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and a.day_id <![CDATA[ >= ]]> '${bdate}'
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and a.day_id <![CDATA[ < ]]> '${edate}'
+        </if>
+        <!-- 班级多选-->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                '${item}'
+            </foreach>
+        </if>
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.people_status like '%B%'
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员,T是查询是所有的时候状态N是当前选项状态 -->
+        <if test="politicalCode != null">
+            and t.political_code_all=#{politicalCode}
+        </if>
+        <if test="eduStatus != null">
+            and t.edu_status like '%${eduStatus}%'
+        </if>
+        <if test="enrollmentYear != null">
+            and t.first_enrollment_year = #{enrollmentYear}
+        </if>
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.first_enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+        <if test="termNum != null">
+            and t.term_num = ${termNum}
+        </if>
+        <!-- 选择在校期间时，如果学期字段为空，则查询term_num为0（即放假）的数据 -->
+        <if test="termtype != null and termtype == 2">
+            and t.term_num = 0
+        </if>
+        <!-- 选择在校期间时，如果学期字段为空，则查询term_num不为0（即在校）的数据 -->
+        <if test="termtype != null and termtype == 1">
+            <if test="termNum == null">
+                and t.term_num != 0
+            </if>
+        </if>
+        <if test="name != null and name !=''">
+            and t.name like '%${name}%'
+        </if>
+        <if test="outid != null and outid !=''">
+            and t.outid like '${outid}%'
+        </if>
+    </sql>
+    <!-- 采用： view_dorm_summarize_times -->
+    <sql id="summarize_where_condition">
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and t.day_id <![CDATA[ >= ]]> '${bdate}'
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and t.day_id <![CDATA[ < ]]> '${edate}'
+        </if>
+        <!-- 班级多选-->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                '${item}'
+            </foreach>
+        </if>
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <!--<if test="scholarship != null">
+            and s.people_status like '%B%'
+        </if>-->
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.impoverish = 1
+        </if>
+        <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员,T是查询是所有的时候状态N是当前选项状态 -->
+        <if test="politicalCode != null">
+            and t.political_code_all=#{politicalCode}
+        </if>
+        <if test="eduStatus != null">
+            and t.edu_status like '%${eduStatus}%'
+        </if>
+        <if test="enrollmentYear != null">
+            and t.first_enrollment_year = #{enrollmentYear}
+        </if>
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.first_enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+    </sql>
+    <!--分页条件 -->
+    <sql id="Paging">
+        <!-- kylin分页用LIMIT 5 OFFSET 2 -->
+        <if test="start!=null">limit ${limit} OFFSET ${start}
+        </if>
+    </sql>
+
+    <select id="personNoComeBack" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.util.Map">
+        select t1.OpDT,t3.TermName
+        from maybe_late t1
+        inner join own_org_student_type t2 on t1.outid=t2.outid
+        left join access_termname t3 on t1.TermID= t3.TermId
+        where 1 = 1 and t1.opdt > t1.acctstarttime
+        <if test="outid != null and outid !=''">and t1.outid = #{outid}</if>
+        <if test="bdate != null and bdate !=''">and t1.day_id <![CDATA[ >= ]]> '${bdate}'</if>
+        <if test="edate != null and edate !=''">and t1.day_id <![CDATA[ < ]]> '${edate}'</if>
+        order by t1.OpDT desc
+        <include refid="Paging"/>
+    </select>
+    <select id="personNoComeBackSize" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.lang.Long">
+        select count(1) from (
+        select t1.OpDT,t3.TermName from maybe_late t1
+        inner join own_org_student_type t2 on t1.outid=t2.outid
+        left join access_termname t3 on t1.TermID= t3.TermId
+        where 1 = 1 and t1.opdt > t1.acctstarttime
+        <if test="outid != null and outid !=''">and t1.outid = #{outid}</if>
+        <if test="bdate != null and bdate !=''">and t1.day_id <![CDATA[ >= ]]> '${bdate}'</if>
+        <if test="edate != null and edate !=''">and t1.day_id <![CDATA[ < ]]> '${edate}'</if>
+        )
+    </select>
+    <select id="queryNoComeBackByDay" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.util.Map">
+        select t1.outid,t1.name,t1.faculty_name,t1.major_name,t1.class_code,t2.opdt
+        from own_org_student_type t1
+        inner join (
+        select
+        ar.outid,ar.opdt
+        from
+        maybe_late ar inner join own_org_student_type t on ar.outid=t.outid
+        where ar.opdt > ar.acctstarttime
+        and substring(ar.latetemp,1,10) = '${day}'
+        <include refid="base_where_condition"/>
+        ) t2 on t1.outid = t2.outid
+        ORDER BY
+        <choose>
+            <when test="sort == null or sort == '' or sort == 'OUTID'">
+                t1.outid
+            </when>
+            <when test="sort == 'OPDT'">
+                t2.opdt
+            </when>
+        </choose>
+        <choose>
+            <when test="order == 0">
+                ASC
+            </when>
+            <when test="order == null or order == 1">
+                DESC
+            </when>
+        </choose>
+        <include refid="Paging"/>
+    </select>
+    <select id="excelNoComeBackByDay" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.util.Map">
+        select t1.outid,t1.name,t1.faculty_name,t1.major_name,t1.class_code,t2.opdt
+        from own_org_student_type t1
+        inner join (
+        select
+        ar.outid,ar.opdt
+        from
+        maybe_late ar inner join own_org_student_type t on ar.outid=t.outid
+        where ar.opdt > ar.acctstarttime
+        and substring(ar.latetemp,1,10) = '${day}'
+        <include refid="base_where_condition"/>
+        ) t2 on t1.outid = t2.outid
+        ORDER BY
+        <choose>
+            <when test="sort == null or sort == 'OUTID'">
+                t1.outid
+            </when>
+            <when test="sort == 'OPDT'">
+                t2.opdt
+            </when>
+        </choose>
+        <choose>
+            <when test="order == 0">
+                ASC
+            </when>
+            <when test="order == null or order == 1">
+                DESC
+            </when>
+        </choose>
+    </select>
+    <select id="queryNoComeBackByDaySize" parameterType="com.ziyun.common.model.ParamsStatus"
+            resultType="java.lang.Long">
+        select
+        count(1)
+        from
+        maybe_late ar inner join own_org_student_type t on ar.outid=t.outid
+        where ar.opdt > ar.acctstarttime
+        and substring(ar.latetemp,1,10) = '${day}'
+        <include refid="base_where_condition"/>
+    </select>
+</mapper>

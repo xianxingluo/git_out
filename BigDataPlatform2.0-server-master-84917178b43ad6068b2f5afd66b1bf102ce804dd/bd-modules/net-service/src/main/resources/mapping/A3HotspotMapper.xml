@@ -1,0 +1,540 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.net.mapper.A3HotspotMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.net.entity.A3Hotspot">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="ip" property="ip" jdbcType="VARCHAR"/>
+        <result column="up" property="up" jdbcType="VARCHAR"/>
+        <result column="down" property="down" jdbcType="VARCHAR"/>
+        <result column="total" property="total" jdbcType="VARCHAR"/>
+        <result column="session" property="session" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="VARCHAR"/>
+        <result column="detail" property="detail"
+                typeHandler="com.ziyun.net.Handler.JsonTypeHandler"/>
+        <result column="date" property="date" jdbcType="TIMESTAMP"/>
+        <result column="target" property="target" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+    <!-- +++++++++++业务查询+++++++++++ -->
+
+    <resultMap id="ResultDataMap" type="com.ziyun.net.vo.ResultData">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+        <result column="datetime" property="datetime" jdbcType="TIMESTAMP"/>
+        <result column="datetimeStr" property="datetimeStr" jdbcType="VARCHAR"/>
+        <result column="weekindex" property="weekindex" jdbcType="INTEGER"/>
+        <result column="week" property="week" jdbcType="VARCHAR"/>
+        <result column="hour" property="hour" jdbcType="VARCHAR"/>
+        <result column="num" property="num" jdbcType="BIGINT"/>
+        <result column="sum" property="sum" jdbcType="DECIMAL"/>
+    </resultMap>
+
+
+    <!-- 1、上网访问内容top10 -->
+    <select id="hotTypeList" resultType="Map"
+            parameterType="com.ziyun.net.vo.Params">
+
+        SELECT
+        r.app_name as 'name', count(*) as sum
+        FROM
+        hotspot_extarct r
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        r.app_name
+        ORDER BY sum DESC
+        LIMIT 10
+    </select>
+    <!-- <select id="hotTypeList" resultType="Map" parameterType="com.ziyun.net.vo.Params">
+        SELECT r.app_type as 'name', count(*) as sum FROM hotspot_extarct r INNER
+        JOIN v_student_net v ON r.NAME=v.username WHERE 1=1 <include refid="Base_where_List"
+        /> and r.app_type not in('其他','网络协议','HTTP_POST','DNS','FTP','P2P') and r.app_name
+        not in(select k.name from app_type_notshow k ) GROUP BY r.app_type ORDER
+        BY sum DESC LIMIT 10 </select> -->
+
+    <!-- 查询： 上网访问内容 -->
+    <select id="listHotspot" resultMap="BaseResultMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT r.* FROM hotspot r, raduserrealm m, own_org_student v WHERE r.
+        NAME
+        = m.username AND m.outid = v.outid
+        <if test="schoolCode != null">
+            and v.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and v.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and v.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <if test="classCode != null">
+            and v.class_code = #{classCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 学号outid -->
+        <if test="outid != null">
+            and v.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and r.date <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and r.date <![CDATA[ < ]]>
+            #{edate}
+        </if>
+    </select>
+
+
+    <!-- {上网行为分析}4、上网热力情况:统计上网分类：频次 -->
+    <select id="hotList" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        SELECT r.app_type as 'name', count(*) as sum
+        FROM hotspot_extarct r
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        r.app_type ORDER
+        BY sum DESC LIMIT 5
+    </select>
+
+    <!-- 新的上网热力：{上网行为分析}4、上网热力情况:只统计学校关系的分类 -->
+    <select id="hotListOn" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        select w.name,w.sum from
+        (
+        (
+        SELECT
+        r.top_name as
+        'name', count(*) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        <include refid="nofilter_where_List"/>
+        and r.top_name
+        in('游戏','金融行情','金融交易','互联网金融','微博','论坛','邮件','社交网络','购物')
+        GROUP BY
+        r.top_name
+        )
+
+        UNION ALL
+        (
+        SELECT
+        '观看视频' as 'name', count(*) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and (
+        r.top_name ='P2P流媒体' or
+        r.top_name='Web流媒体')
+        <include refid="nofilter_where_List"/>
+        )
+
+        UNION ALL
+        (
+        SELECT '聊天' as 'name', count(*) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and
+        r.top_name ='IM'
+        <include refid="nofilter_where_List"/>
+        )
+
+        UNION ALL
+        (
+        SELECT '下载' as 'name', count(*) as sum
+        FROM
+        hotspot_extarct r
+        WHERE
+        1=1
+        and
+        (r.top_name ='P2P' or
+        r.top_name='下载工具')
+        <include refid="nofilter_where_List"/>
+        )
+        )w where w.sum >0
+        order by w.sum desc
+    </select>
+
+    <!-- <select id="hotList" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        SELECT r.top_name as 'name', count(*) as sum FROM hotspot_extarct r INNER
+        JOIN v_student_net v ON r.NAME=v.username WHERE 1=1 <include refid="Base_where_List"
+        /> and r.app_type not in('其他','网络协议','HTTP_POST','DNS','FTP','P2P') and r.app_name
+        not in(select k.name from app_type_notshow k ) and r.top_name is not null
+        GROUP BY r.top_name ORDER BY sum DESC LIMIT 5 </select> -->
+
+
+    <!-- {上网行为分析}8、上网内容类型{修改为按照人数：统计具体应用}:top10显示， -->
+    <select id="preferenceList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        r.app_name as 'name', count(r.app_name) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        r.app_name
+        ORDER BY sum DESC
+    </select>
+
+    <select id="preferenceList4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        r.class_code,
+        r.app_name as 'name', count(DISTINCT(r.outid)) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        r.class_code, r.app_name
+        ORDER BY r.school_code,r.faculty_code,r.major_code,r.class_code, sum DESC
+    </select>
+
+    <select id="preferenceTypeList4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        select w.name,w.sum,w.class_code from
+        (
+        (
+        SELECT
+        r.top_name as
+        'name',
+        count(DISTINCT(r.outid)) as sum,
+        r.class_code,r.school_code,r.faculty_code,r.major_code
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        <include refid="nofilter_where_List"/>
+        and r.top_name
+        in('游戏','金融行情','金融交易','互联网金融','微博','论坛','邮件','社交网络','购物')
+        GROUP BY r.class_code,
+        r.top_name
+        )
+
+        UNION ALL
+        (
+        SELECT
+        '观看视频' as 'name', count(DISTINCT(r.outid))
+        as sum,
+        r.class_code,r.school_code,r.faculty_code,r.major_code
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and ( r.top_name ='P2P流媒体' or
+        r.top_name='Web流媒体')
+        <include refid="nofilter_where_List"/>
+        GROUP BY r.class_code
+        )
+
+        UNION ALL
+        (
+        SELECT '聊天' as 'name',
+        count(DISTINCT(r.outid)) as sum,
+        r.class_code,r.school_code,r.faculty_code,r.major_code
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and
+        r.top_name ='IM'
+        <include refid="nofilter_where_List"/>
+        GROUP BY r.class_code
+        )
+
+        UNION ALL
+        (
+        SELECT '下载' as 'name',
+        count(DISTINCT(r.outid)) as sum,
+        r.class_code,r.school_code,r.faculty_code,r.major_code
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and
+        (r.top_name ='P2P' or r.top_name='下载工具')
+        <include refid="nofilter_where_List"/>
+        GROUP BY r.class_code
+        )
+        )w where w.sum >0
+        order by w.school_code,w.faculty_code,w.major_code,w.class_code, w.sum desc
+    </select>
+
+    <!--新增的 8、上网内容类型{修改为按照人数：统计学校关注的几个分类：例如游戏、炒股等}: -->
+    <select id="preferenceTypeList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        select w.name,w.sum from
+        (
+        (
+        SELECT
+        r.top_name as
+        'name',
+        count(r.top_name) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        <include refid="nofilter_where_List"/>
+        and r.top_name
+        in('游戏','金融行情','金融交易','互联网金融','微博','论坛','邮件','社交网络','购物')
+        GROUP BY
+        r.top_name
+        )
+
+        UNION ALL
+        (
+        SELECT
+        '观看视频' as 'name', count(r.top_name)
+        as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and ( r.top_name ='P2P流媒体' or
+        r.top_name='Web流媒体')
+        <include refid="nofilter_where_List"/>
+        )
+
+        UNION ALL
+        (
+        SELECT '聊天' as 'name',
+        count(r.top_name) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and
+        r.top_name ='IM'
+        <include refid="nofilter_where_List"/>
+        )
+
+        UNION ALL
+        (
+        SELECT '下载' as 'name',
+        count(r.top_name) as sum
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        and
+        (r.top_name ='P2P' or r.top_name='下载工具')
+        <include refid="nofilter_where_List"/>
+        )
+        )w where w.sum >0
+        order by w.sum desc
+    </select>
+
+
+    <!-- 个人统计{学生行为分析} -->
+    <!-- {学生行为分析}3.1、上网偏好{记录数} -->
+    <select id="preferenceOtherList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT r.app_type as 'name', count(*) as sum
+        FROM hotspot_extarct r
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        r.app_type ORDER
+        BY sum DESC
+    </select>
+    <!-- <select id="preferenceOtherList" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        select a.top_name as 'name', sum(x.sum) as sum from ( SELECT r.app_type as
+        'name', count(*) as sum FROM hotspot_extarct r INNER JOIN v_student_net v
+        ON r.NAME=v.username WHERE 1=1 <include refid="Base_where_List" /> and r.app_type
+        not in('其他','网络协议','HTTP_POST','DNS','FTP','P2P') and r.app_name not in(select
+        k.name from app_type_notshow k ) GROUP BY r.app_type ) x, app_type a where
+        x.name =a.name GROUP BY a.top_crc ORDER BY sum DESC </select> -->
+
+
+    <!-- {学生行为分析}3.2、周一到周末的：上网偏好{记录数}:最早、最晚记录时间（用于计算周几的平均） -->
+    <select id="weekPreferenceOtherTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        min(r.date) as 'bdate',max(r.date) as 'edate'
+        FROM
+        hotspot_extarct r
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- {学生行为分析}3.2、周一到周末的：上网偏好{记录数} -->
+    <!-- 个人统计{学生行为分析} -->
+    <select id="weekPreferenceOtherList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT DATE_FORMAT(r.date, '%w') AS weekindex, r.app_type as 'name',
+        count(*)
+        as sum
+        FROM hotspot_extarct r
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        weekindex,r.app_type
+        ORDER BY sum DESC
+    </select>
+    <!-- <select id="weekPreferenceOtherList" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        select x.weekindex,a.top_name as 'name', sum(x.sum) as sum from ( SELECT
+        DATE_FORMAT(r.date, '%w') AS weekindex, r.app_type as 'name', count(*) as
+        sum FROM hotspot_extarct r INNER JOIN v_student_net v ON r.NAME=v.username
+        WHERE 1=1 <include refid="Base_where_List" /> and r.app_type not in('其他','网络协议','HTTP_POST','DNS','FTP','P2P')
+        and r.app_name not in(select k.name from app_type_notshow k ) GROUP BY weekindex,r.app_type
+        ) x, app_type a where x.name =a.name GROUP BY x.weekindex, a.top_crc ORDER
+        BY sum DESC </select> -->
+
+    <!-- 动态查询条件:没有过滤网络协议等：统计学校关系的哪几种分类不需要过。查询具体上网内容的要过滤 -->
+    <sql id="nofilter_where_List">
+        <if test="schoolCode != null">
+            and r.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and r.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and r.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null">
+            and r.class_code = #{classCode,jdbcType=VARCHAR}
+        </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and r.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学号outid -->
+        <if test="outid != null">
+            and r.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        <if test="sex != null">
+            and r.sex = #{sex,jdbcType=VARCHAR}
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and r.date <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and r.date <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and r.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and r.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+    </sql>
+
+
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+        <if test="schoolCode != null">
+            and r.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and r.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and r.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null">
+            and r.class_code = #{classCode,jdbcType=VARCHAR}
+        </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and r.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学号outid -->
+        <if test="outid != null">
+            and r.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        <if test="sex != null">
+            and r.sex = #{sex,jdbcType=VARCHAR}
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and r.date <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and r.date <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 过滤掉：网络协议等客户不想看到的内容 -->
+        and r.app_type not in('其他','网络协议','HTTP_POST','DNS','FTP','P2P')
+        and
+        r.app_name not in(select k.name from app_type_notshow k )
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and r.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and r.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+    </sql>
+
+    <!-- +++++++++++业务查询+++++++++++ -->
+
+
+    <sql id="Base_Column_List">
+        id, name, ip, up, down, total, session, status, detail,
+        date, target
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="java.lang.Integer">
+        select
+        <include refid="Base_Column_List"/>
+        from hotspot
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+
+    <!-- -->
+    <select id="listToday" resultMap="BaseResultMap" parameterType="java.lang.Integer">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM
+        hotspot
+        WHERE
+        date > DATE_FORMAT(now(), '%Y-%c-%d')
+        <if test="bdate != null and bdate != ''">
+            and date > #{bdate}
+        </if>
+        <if test="edate != null and edate != ''">
+            and date <![CDATA[ < ]]> #{edate}
+        </if>
+    </select>
+
+</mapper>

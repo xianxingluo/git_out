@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.net.mapper.OnLineNumMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.net.entity.OnLineNum">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="num" property="num" jdbcType="INTEGER"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="time" property="time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, num, type, time
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer">
+        select
+        <include refid="Base_Column_List"/>
+        from onlinenum
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+        delete from onlinenum
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.net.entity.OnLineNum">
+        insert into onlinenum (id, num, type,
+        time)
+        values (#{id,jdbcType=INTEGER}, #{num,jdbcType=INTEGER}, #{type,jdbcType=VARCHAR},
+        #{time,jdbcType=TIMESTAMP})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.net.entity.OnLineNum">
+        insert into onlinenum
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="num != null">
+                num,
+            </if>
+            <if test="type != null">
+                type,
+            </if>
+            <if test="time != null">
+                time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="num != null">
+                #{num,jdbcType=INTEGER},
+            </if>
+            <if test="type != null">
+                #{type,jdbcType=VARCHAR},
+            </if>
+            <if test="time != null">
+                #{time,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.net.entity.OnLineNum">
+        update onlinenum
+        <set>
+            <if test="num != null">
+                num = #{num,jdbcType=INTEGER},
+            </if>
+            <if test="type != null">
+                type = #{type,jdbcType=VARCHAR},
+            </if>
+            <if test="time != null">
+                time = #{time,jdbcType=TIMESTAMP},
+            </if>
+        </set>
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.net.entity.OnLineNum">
+        update onlinenum
+        set num = #{num,jdbcType=INTEGER},
+        type = #{type,jdbcType=VARCHAR},
+        time = #{time,jdbcType=TIMESTAMP}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+
+    <insert id="insertOnLineNum" parameterType="com.ziyun.net.entity.OnLineNum">
+        INSERT INTO onlinenum (num, time) SELECT
+        count(*) AS num,
+        now() AS time
+        FROM
+        radacct t
+        WHERE
+        t.username &lt;&gt; 'DHCP'
+    </insert>
+    <select id="listOnLineNum" resultType="java.util.LinkedHashMap" parameterType="java.lang.Integer">
+        select
+        id,sum(num) as number,type,DATE_FORMAT(time,'%H:%i') as date
+        FROM
+        onlinenum
+        WHERE
+        time &gt; DATE_FORMAT(
+        now(),
+        DATE_FORMAT(now(), '%Y-%c-%d')
+        )
+        AND type = 'onLineNum'
+        group by date
+        order by time
+    </select>
+</mapper>

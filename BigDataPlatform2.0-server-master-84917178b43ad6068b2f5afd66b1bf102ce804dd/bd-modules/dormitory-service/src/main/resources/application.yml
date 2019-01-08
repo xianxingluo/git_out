@@ -1,0 +1,229 @@
+spring:
+  profiles:
+    active: dev # 环境切换
+  application:
+    name: dormitory-service
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+logging:
+  config: classpath:log4j2.yml
+
+mybatis:
+  ## 实体类路径
+  typeAliasesPackage: com.ziyun.dormitory.model
+  ## mapping文件路径
+  mapperLocations: classpath:mapping/*.xml
+  ## 配置文件路径
+  configLocation: classpath:mybatis-config.xml
+
+# 分页插件配置
+pagehelper:
+    helperDialect: mysql
+    reasonable: true
+    supportMethodsArguments: true
+    params: count=countSql
+
+# Excel导出配置
+excel:
+  xlsLocation: xls/
+  record:
+    limit: 1000
+  dorm:
+    inOutFlow:
+      name: 宿舍进出流量
+      fileName: dorm_inOutFlow.xls
+    lateness:
+      name: 晚归情况deprecated
+      fileName: dorm_lateness.xls
+    latenessdetail:
+      name: 晚归情况
+      fileName: dorm_lateness_detail.xls
+    possible:
+      name: 可能晚归情况
+      fileName: dorm_possible.xls
+    ratio:
+      name: 晚归次数百分比
+      fileName: dorm_ratio.xls
+    record:
+      name: 打卡记录
+      fileName: dorm_record.xls
+    noBack:
+      name: 可能未归情况
+      fileName: dorm_noBack.xls
+---
+
+# 测试环境
+server:
+  port: 7016
+  max-http-header-size: 40960
+spring:
+  profiles: test
+  datasource:
+        #mysql数据源
+            mysql:
+                name: mysqlDataSource
+                url: jdbc:mysql://192.168.101.218:3306/datacenter_v2?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+                username: app
+                password: ZFRwjk2RPNxD346z
+                driver-class-name: com.mysql.jdbc.Driver
+                testOnBorrow: true
+                validationQuery: select 1
+        #kylin数据源
+            kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://192.168.101.216:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 1
+    ## 主机
+    host: 192.168.101.212
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password: NaRT9gnxMKZ6MqA2
+    ## 连接超时时间（秒）
+    timeout: 43200
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://192.168.101.211:8606/eureka/
+  instance:
+    ## 租期更新时间间隔（默认30秒）
+    leaseRenewalIntervalInSeconds: 15
+    ## 租期到期时间（默认90秒）
+    leaseExpirationDurationInSeconds: 30
+# swagger 配置
+swagger:
+ show: true
+---
+
+# 开发环境
+server:
+  port: 7016
+  max-http-header-size: 40960
+spring:
+  profiles: dev
+  datasource:
+        #mysql数据源
+            mysql:
+                name: mysqlDataSource
+                url: jdbc:mysql://192.168.101.217:3306/datacenter_dev_v2?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+                username: dev
+                password: lJZx2Ik5eqX3xBDp
+                driver-class-name: com.mysql.jdbc.Driver
+                testOnBorrow: true
+                validationQuery: select 1
+        #kylin数据源
+            kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://192.168.101.216:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 0
+    ## 主机
+    host: 192.168.101.212
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password: NaRT9gnxMKZ6MqA2
+    ## 连接超时时间（秒）
+    timeout: 43200
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8606/eureka/
+  instance:
+    ## 租期更新时间间隔（默认30秒）
+    leaseRenewalIntervalInSeconds: 15
+    ## 租期到期时间（默认90秒）
+    leaseExpirationDurationInSeconds: 30
+# swagger 配置
+swagger:
+ show: true
+---
+
+# 生产环境
+server:
+  port: 7016
+  max-http-header-size: 40960
+spring:
+  profiles: prod
+  datasource:
+        #mysql数据源
+            mysql:
+                name: mysqlDataSource
+                url: jdbc:mysql://10.130.254.28:3306/datacenter?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+                username: root
+                password: dd@2018
+                driver-class-name: com.mysql.jdbc.Driver
+                testOnBorrow: true
+                validationQuery: select 1
+        #kylin数据源
+            kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://10.130.254.20:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 0
+    ## 主机
+    host: 10.130.254.28
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password:
+    ## 连接超时时间（秒）
+    timeout: 43200
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+## eureka server
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://10.130.254.28:8606/eureka/
+  instance:
+    ## 租期更新时间间隔（默认30秒）
+    leaseRenewalIntervalInSeconds: 15
+    ## 租期到期时间（默认90秒）
+    leaseExpirationDurationInSeconds: 30
+# swagger 配置
+swagger:
+ show: false

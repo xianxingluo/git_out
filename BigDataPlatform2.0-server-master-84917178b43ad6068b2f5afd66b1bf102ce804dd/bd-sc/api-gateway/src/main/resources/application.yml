@@ -1,0 +1,231 @@
+
+spring:
+  profiles:  # 环境切换
+    active: dev
+  application:
+    name: api-gateway
+# 日志级别
+logging:
+  path: /var/log/zy-sc
+  file: ${spring.application.name}.log
+  level:
+    ROOT: debug
+zuul:
+  sensitive-headers:
+  strip-prefix: true
+security:
+  basic:
+    enabled: false
+  oauth2:
+    resource:
+      prefer-token-info: false
+---
+# 开发环境
+spring:
+  profiles: dev
+  redis:
+      ## Redis数据库索引（默认为0）
+      database: 0
+      ## 主机
+      host: 192.168.101.212
+      ## 端口
+      port: 6379
+      ## Redis服务器连接密码（默认为空）
+      password: NaRT9gnxMKZ6MqA2
+      ## 连接超时时间（毫秒）
+      timeout: 100000
+      pool:
+        ## 连接池最大连接数（使用负值表示没有限制）
+        max-active: 600
+        ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+        max-wait: 1000
+        ## 连接池中的最大空闲连接
+        max-idle: 300
+        ## 连接池中的最小空闲连接
+        min-idle: 200
+server:
+  port: 8605
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8606/eureka/
+
+zuul:
+  routes:
+    report-service:
+      path: /report/**
+    auth-service:
+      path: /auth/**
+    tracking-service:
+      path: /tracking/**
+    basic-service:
+      path: /basic/**
+    academic-service:
+      path: /academic/**
+    consume-service:
+      path: /consume/**
+    net-service:
+      path: /net/**
+    dormitory-service:
+      path: /dormitory/**
+    borrow-service:
+      path: /borrow/**
+    chart-service:
+      path: /chart/**
+  # 取消重试机制
+  retryable: false
+  add-host-header: true
+ribbon:
+    ReadTimeout: 60000
+    ConnectTimeout: 60000
+hystrix:
+   command:
+     default:
+       execution:
+         isolation:
+           thread:
+             timeoutInMilliseconds: 60000
+logging:
+  path: /var/log/ms-module
+  file: ${spring.application.name}.log
+  level: debug
+
+# swagger 配置
+swagger:
+ show: true
+
+ #获取access_token的url
+auth:
+   accessToken:
+     url: http://192.168.101.213:7012/oauth/token
+    #获取所有班级的接口
+request:
+   url:
+    selectAllClassCode: http://localhost:7013/v2/school/common/selectOwnClasscode
+
+---
+
+# 测试环境
+spring:
+  profiles: test
+  redis:
+      ## Redis数据库索引（默认为0）
+      database: 1
+      ## 主机
+      host: 192.168.101.212
+      ## 端口
+      port: 6379
+      ## Redis服务器连接密码（默认为空）
+      password: NaRT9gnxMKZ6MqA2
+      ## 连接超时时间（毫秒）
+      timeout: 100000
+      pool:
+        ## 连接池最大连接数（使用负值表示没有限制）
+        max-active: 600
+        ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+        max-wait: 1000
+        ## 连接池中的最大空闲连接
+        max-idle: 300
+        ## 连接池中的最小空闲连接
+        min-idle: 200
+server:
+  port: 8605
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://192.168.101.211:8606/eureka/
+zuul:
+  routes:
+    report-service:
+      path: /report/**
+    auth-service:
+      path: /auth/**
+    tracking-service:
+      path: /tracking/**
+    basic-service:
+      path: /basic/**
+    academic-service:
+      path: /academic/**
+    consume-service:
+      path: /consume/**
+    net-service:
+      path: /net/**
+    dormitory-service:
+      path: /dormitory/**
+    borrow-service:
+      path: /borrow/**
+    chart-service:
+      path: /chart/**
+  # 取消重试机制
+  retryable: false
+  add-host-header: true
+ribbon:
+    ReadTimeout: 60000
+    ConnectTimeout: 60000
+hystrix:
+   command:
+     default:
+       execution:
+         isolation:
+           thread:
+             timeoutInMilliseconds: 60000
+# swagger 配置
+swagger:
+ show: true
+auth:
+   accessToken:
+     url: http://192.168.101.211:7012/oauth/token
+  #获取所有班级的接口
+request:
+   url:
+    selectAllClassCode: http://localhost:7013/v2/school/common/selectOwnClasscode
+---
+
+# 生产环境
+spring:
+  profiles: prod
+server:
+  port: 8605
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://10.130.254.28:8606/eureka/
+zuul:
+  routes:
+    report-service:
+      path: /report/**
+    auth-service:
+      path: /auth/**
+    tracking-service:
+      path: /tracking/**
+    basic-service:
+      path: /basic/**
+    academic-service:
+      path: /academic/**
+    consume-service:
+      path: /consume/**
+    net-service:
+      path: /net/**
+    dormitory-service:
+      path: /dormitory/**
+    borrow-service:
+      path: /borrow/**
+    chart-service:
+      path: /chart/**
+  # 取消重试机制
+  retryable: false
+  add-host-header: true
+ribbon:
+    ReadTimeout: 60000
+    ConnectTimeout: 60000
+hystrix:
+   command:
+     default:
+       execution:
+         isolation:
+           thread:
+             timeoutInMilliseconds: 60000
+
+# swagger 配置
+swagger:
+ show: false

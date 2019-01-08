@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.basic.mapper.OwnOrgTreeMapper">
+    <select id="getTopCategoryByFunction" resultType="Map" parameterType="com.ziyun.basic.vo.Params"
+            statementType="CALLABLE">
+        SELECT
+        <include refid="Base_Menu_Column_List"/>
+        FROM own_org_tree
+        WHERE FIND_IN_SET(org_code, queryChild(#{orgCode,mode=IN,jdbcType=VARCHAR}))
+        ORDER BY id;
+    </select>
+    <select id="getTopCategory" resultType="Map" parameterType="com.ziyun.basic.vo.Params"
+            statementType="CALLABLE">
+        <![CDATA[
+      call sp_showChildLst(#{orgCode,mode=IN,jdbcType=VARCHAR})
+    ]]>
+    </select>
+    <select id="getAllTopCategory" resultType="Map" parameterType="com.ziyun.basic.vo.Params">
+        SELECT
+        <include refid="Base_Menu_Column_List"/>
+        FROM own_org_tree
+        <if test="orgCode !=null and orgCode !=''">
+            WHERE parent_code = #{orgCode}
+        </if>
+        ORDER BY index_num DESC
+    </select>
+
+    <resultMap id="BaseResultMap" type="com.ziyun.basic.entity.OwnOrgStree">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="org_code" property="orgCode" jdbcType="VARCHAR"/>
+        <result column="org_name" property="orgName" jdbcType="VARCHAR"/>
+        <result column="parent_code" property="parentCode" jdbcType="VARCHAR"/>
+        <result column="org_level" property="orgLevel" jdbcType="INTEGER"/>
+        <result column="old_org_code" property="oldOrgCode" jdbcType="VARCHAR"/>
+        <result column="old_parent_code" property="oldParentCode" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Menu_Column_List">
+        id, org_code, org_name, parent_code, org_level
+    </sql>
+    <sql id="Base_Column_List">
+        id, org_code, org_name, parent_code, org_level, old_org_code, old_parent_code
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Integer">
+        select
+        <include refid="Base_Column_List"/>
+        from own_org_tree
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+        delete from own_org_tree
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.basic.entity.OwnOrgStree">
+        insert into own_org_tree (id, org_code, org_name,
+        parent_code, org_level, old_org_code,
+        old_parent_code)
+        values (#{id,jdbcType=INTEGER}, #{orgCode,jdbcType=VARCHAR}, #{orgName,jdbcType=VARCHAR},
+        #{parentCode,jdbcType=VARCHAR}, #{orgLevel,jdbcType=INTEGER}, #{oldOrgCode,jdbcType=VARCHAR},
+        #{oldParentCode,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.basic.entity.OwnOrgStree">
+        insert into own_org_tree
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="orgCode != null">
+                org_code,
+            </if>
+            <if test="orgName != null">
+                org_name,
+            </if>
+            <if test="parentCode != null">
+                parent_code,
+            </if>
+            <if test="orgLevel != null">
+                org_level,
+            </if>
+            <if test="oldOrgCode != null">
+                old_org_code,
+            </if>
+            <if test="oldParentCode != null">
+                old_parent_code,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="orgCode != null">
+                #{orgCode,jdbcType=VARCHAR},
+            </if>
+            <if test="orgName != null">
+                #{orgName,jdbcType=VARCHAR},
+            </if>
+            <if test="parentCode != null">
+                #{parentCode,jdbcType=VARCHAR},
+            </if>
+            <if test="orgLevel != null">
+                #{orgLevel,jdbcType=INTEGER},
+            </if>
+            <if test="oldOrgCode != null">
+                #{oldOrgCode,jdbcType=VARCHAR},
+            </if>
+            <if test="oldParentCode != null">
+                #{oldParentCode,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.basic.entity.OwnOrgStree">
+        update own_org_tree
+        <set>
+            <if test="orgCode != null">
+                org_code = #{orgCode,jdbcType=VARCHAR},
+            </if>
+            <if test="orgName != null">
+                org_name = #{orgName,jdbcType=VARCHAR},
+            </if>
+            <if test="parentCode != null">
+                parent_code = #{parentCode,jdbcType=VARCHAR},
+            </if>
+            <if test="orgLevel != null">
+                org_level = #{orgLevel,jdbcType=INTEGER},
+            </if>
+            <if test="oldOrgCode != null">
+                old_org_code = #{oldOrgCode,jdbcType=VARCHAR},
+            </if>
+            <if test="oldParentCode != null">
+                old_parent_code = #{oldParentCode,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.basic.entity.OwnOrgStree">
+        update own_org_tree
+        set org_code = #{orgCode,jdbcType=VARCHAR},
+        org_name = #{orgName,jdbcType=VARCHAR},
+        parent_code = #{parentCode,jdbcType=VARCHAR},
+        org_level = #{orgLevel,jdbcType=INTEGER},
+        old_org_code = #{oldOrgCode,jdbcType=VARCHAR},
+        old_parent_code = #{oldParentCode,jdbcType=VARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <resultMap id="parentcodeMap" type="com.ziyun.basic.entity.OwnOrgStree">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="org_code" property="orgCode" jdbcType="VARCHAR"/>
+        <result column="org_name" property="orgName" jdbcType="VARCHAR"/>
+        <result column="parent_code" property="parentCode" jdbcType="VARCHAR"/>
+        <result column="org_level" property="orgLevel" jdbcType="INTEGER"/>
+        <result column="old_org_code" property="oldOrgCode" jdbcType="VARCHAR"/>
+        <result column="old_parent_code" property="oldParentCode" jdbcType="VARCHAR"/>
+        <collection property="orgStree" ofType="com.ziyun.basic.entity.OwnOrgStree" select="getPcodeByCcode"
+                    column="parent_code"></collection>
+    </resultMap>
+    <select id="getPcodeByCcode" parameterType="com.ziyun.basic.vo.Params" resultMap="parentcodeMap">
+        select
+        <include refid="Base_Column_List"/>
+        from own_org_tree
+        where org_code = #{orgCode}
+    </select>
+    <select id="getChildrenList" parameterType="com.ziyun.basic.vo.Params" resultType="Map">
+        select
+        <include refid="Base_Menu_Column_List"/>
+        from own_org_tree
+        where 1=1
+        <if test="orgCode != null and orgCode != ''">
+            and parent_code = #{orgCode}
+        </if>
+        ORDER BY id asc
+    </select>
+</mapper>

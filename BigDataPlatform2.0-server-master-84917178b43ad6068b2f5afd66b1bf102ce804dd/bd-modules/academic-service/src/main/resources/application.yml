@@ -1,0 +1,560 @@
+spring:
+  ## 环境切换
+  profiles:
+    active: dev
+
+  application:
+    name: academic-service
+
+logging:
+  config: classpath:log4j2.yml
+
+ribbon:
+  eureka:
+    enabled: true
+
+
+## 下载路径，文件名
+excel:
+     #上课考勤打卡
+   attendanceCard:
+                  path: xls/course_attendanceCard.xls
+                  name: 上课考勤打卡
+   course:
+     category:
+        studentList:
+           path: xls/course_category_studentList.xls
+           name: 课程分类列表
+     properties:
+        studentList:
+          path: xls/course_properties_studentList.xls
+          name: 课程属性学生列表
+     natures:
+         studentList:
+              path: xls/course_natures_studentList.xls
+              name: 课程性质列表
+    #绩点排名
+   pointTop:
+          path: xls/course_pointTop.xls
+          name: 绩点排名
+   electiveTopCoursenoList:
+        path: xls/course_electiveTopCoursenoList.xls
+        name: 选修课排名-弹窗
+   early:
+      warning:
+        #必修课挂科门数在2--4门之间
+         compulsoryCoursesCount2:
+                 name: 必修课挂科门数在2-4门之间
+                 path: xls/earlyWarning/compulsoryCoursesCount2.xls
+          #学年总学分小于18学分
+         studentYearCreditList:
+                   name: 学年总学分小于18学分
+                   path: xls/earlyWarning/studentYearCreditList.xls
+         #记过以上处分
+         studentPulishList:
+             name: 记过以上处分
+             path: xls/earlyWarning/studentPulishList.xls
+         #英语四四级分数小于390
+         studentEnglishScoreList:
+             name: 英语四级分数小于390
+             path: xls/earlyWarning/studentEnglishScoreList.xls
+
+         classRankingSlide:
+             name: 班级排名下滑超过十名
+             path: xls/earlyWarning/classRankingSlide.xls
+         compulsoryCoursesCount4:
+            name: 必修课挂科门数大于4门
+            path: xls/earlyWarning/compulsoryCoursesCount4.xls
+            #v2.0智能预警
+         intelligenceEarly:
+            path: xls/earlyWarning/intelligenceEarly.xls
+            path2: xls/earlyWarning/intelligenceEarly2.xls
+
+---
+
+# 开发环境
+spring:
+  profiles: dev
+# redis
+  redis:
+       database: 0
+       host: 192.168.101.212
+       port: 6379
+       password: NaRT9gnxMKZ6MqA2
+       pool:
+         max-active: 8
+         max-wait: -1
+         max-idle: 8
+         min-idle: 0
+       timeout: 0
+  datasource:
+#  mysql数据源
+            mysql:
+                 name: mysqlDataSource
+                 url: jdbc:mysql://192.168.101.217:3306/datacenter_dev_v2?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+                 username: dev
+                 password: lJZx2Ik5eqX3xBDp
+                 driver-class-name: com.mysql.jdbc.Driver
+                 testOnBorrow: true
+                 validationQuery: select 1
+# kylin数据源
+            kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://192.168.101.216:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+
+
+server:
+  port: 7011
+  max-http-header-size: 40960
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8606/eureka/
+
+mybatis:
+    type-aliases-package: com.ziyun.academic.entity
+    mapperLocations: classpath:mapping/*.xml
+    configuration:
+      call-setters-on-nulls: true
+
+
+
+
+
+
+###################################redis############################
+
+
+#################mysql init data more sql split with ';'#################
+initData: insert into `sys_user` (`deleteflag`, `descs`, `email`, `issys`, `nickname`, `phone`, `status`, `subSystem`, `types`, `userAccount`, `userDept`, `userDesc`, `userDuty`, `userId`, `userName`, `userPassword`) values('N', '', 'admin@zjenterprise.com', null, 'admin', null, null, null, null, 'admin', null, null, null, null, 'admin', 'e10adc3949ba59abbe56e057f20f883e')
+
+################################### mail#################################
+mailHost: smtp.126.com
+mail.port: 25
+mailUsername: popinfo1
+mailPassword: popinfo123
+formMailAddress: popinfo@126.com
+
+
+mailHostFrom: smtp.126.com
+mailUsernameFrom: popinfo1
+mailPasswordFrom: popinfo123
+mailAddressFrom: popinfo@126.com
+
+mailUsernameTo: popinfotest
+mailPasswordTo: popinfotest123
+mailAddressTo: popinfotest@126.com
+
+###################################hadoop configuretion###########################################
+zk.quorum: 192.168.100.101,192.168.100.102,192.168.100.104
+hd.mr: 192.168.23.34:2181
+zk.port: 2181
+zk.host: 192.168.100.101,192.168.100.102,192.168.100.104
+fs.defaultFS: hdfs://masters
+fs.default.name: hdfs://192.168.100.102:9000
+fs.default.names: "hdfs://192.168.23.31:9000"
+fs.default.nameha: "hdfs://masters"
+
+wordcount.input.path: /myhome/usr/hadoop/data/input/
+wordcount.output.path: /myhome/usr/hadoop/data/output/
+delete-connection: true
+
+###################################hbase configuretion###########################################
+
+hbase.master.info.bindAddress: 192.168.3.130
+ipc.client.connection.maxidletime: 1000000
+
+############################hbase tables################################
+namespace:tizr\: tizr
+mytown:table\:columns\:mytown\:blog\: blog\:name;blog\:addr;
+info: mytown:info
+columns:mytown\:blog\: blog\:name;blog\:addr;
+member: mytown:member
+blog: mytown:blog
+################################mina  configuretion####################################
+#minaport: :188
+minaport: :1030
+################################kafka  configuretion####################################
+metadata.broker.list: 192.168.23.140:9092,192.168.23.142:9092
+
+##################防火墙#################
+firewall.username: bigdata
+firewall.password: data@JUSTHILL1221
+################################mysql  configuretion####################################
+
+mysql.driver: com.mysql.jdbc.Driver
+mysql.url: jdbc:mysql://192.168.100.103:3306/datacenter?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8
+mysql.username: root
+mysql.password: dd@2016
+#\u5B9A\u4E49\u521D\u59CB\u8FDE\u63A5\u6570
+mysql.initialSize: 100
+#\u5B9A\u4E49\u6700\u5927\u8FDE\u63A5\u6570
+mysql.maxActive: 1000
+#\u5B9A\u4E49\u6700\u5927\u7A7A\u95F2
+mysql.maxIdle: 100
+#\u5B9A\u4E49\u6700\u5C0F\u7A7A\u95F2
+mysql.minIdle: 100
+#\u5B9A\u4E49\u6700\u957F\u7B49\u5F85\u65F6\u95F4
+mysql.maxWait: 600000
+
+################################ mysql dataresult  configuretion####################################
+
+mysqlR.driver: org.apache.kylin.jdbc.Driver
+mysqlR.url: jdbc:kylin://192.168.100.102:7070/jkd
+#mysql.url: jdbc:mysql://10.3.1.95:3306/datacenter?autoReconnect: true&amp;useUnicode: true&amp;characterEncoding: UTF-8
+mysqlR.username: ADMIN
+mysqlR.password: KYLIN
+#\u5B9A\u4E49\u521D\u59CB\u8FDE\u63A5\u6570
+mysqlR.initialSize: 100
+#\u5B9A\u4E49\u6700\u5927\u8FDE\u63A5\u6570
+mysqlR.maxActive: 1000
+#\u5B9A\u4E49\u6700\u5927\u7A7A\u95F2
+mysqlR.maxIdle: 100
+#\u5B9A\u4E49\u6700\u5C0F\u7A7A\u95F2
+mysqlR.minIdle: 100
+#\u5B9A\u4E49\u6700\u957F\u7B49\u5F85\u65F6\u95F4
+mysqlR.maxWait: 600000
+
+###########################\u9632\u706B\u5899\u914D\u7F6E###########################
+# \u9632\u706B\u5899\u767B\u5F55url
+fire.wall.login.url: http://10.130.255.9/
+
+# chrome driver \u8DEF\u5F84
+chrome.driver.path: D:\\software\\bin\\selenium\\chromedriver.exe
+
+# \u6BCF\u96941\u5206\u949F\u6267\u884C
+job.grabFwFlowInfo: 0 0/1 * * * ?
+
+# \u9700\u8981\u5220\u9664\u7684\u96F6\u65F6\u6587\u4EF6\u7684\u76EE\u5F55
+tempfile.path: C:\\Users\\dell\\AppData\\Local\\Temp
+
+# \u6293\u53D6\u9632\u706B\u5899\u9875\u9762\u7684tbody id
+tbody.id: gridview-1146-body
+
+###########################\u6743\u9650\u7BA1\u7406\u53F0\u8BF7\u6C42\u5730\u5740###########################
+authority.management.path: http://192.168.100.105:8081
+
+---
+
+ #测试环境
+spring:
+  profiles: test
+  datasource:
+#  mysql数据源
+              mysql:
+                 name: mysqlDataSource
+                 url: jdbc:mysql://192.168.101.218:3306/datacenter_v2?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+                 username: app
+                 password: ZFRwjk2RPNxD346z
+                 driver-class-name: com.mysql.jdbc.Driver
+                 testOnBorrow: true
+                 validationQuery: select 1
+#kylin数据源
+              kylin:
+                name: kylinDataSource
+                url: jdbc:kylin://192.168.101.216:7070/jkd
+                username: admin
+                password: KYLIN
+                driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+     database: 1
+     host: 192.168.101.212
+     port: 6379
+     password: NaRT9gnxMKZ6MqA2
+     pool:
+       max-active: 8
+       max-wait: -1
+       max-idle: 8
+       min-idle: 0
+     timeout: 0
+server:
+  port: 7011
+  max-http-header-size: 40960
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://192.168.101.211:8606/eureka/
+mybatis:
+      type-aliases-package: com.ziyun.academic.entity
+      mapperLocations: classpath:mapping/*.xml
+
+
+
+
+###################################redis############################
+
+
+#################mysql init data more sql split with ';'#################
+initData: insert into `sys_user` (`deleteflag`, `descs`, `email`, `issys`, `nickname`, `phone`, `status`, `subSystem`, `types`, `userAccount`, `userDept`, `userDesc`, `userDuty`, `userId`, `userName`, `userPassword`) values('N', '', 'admin@zjenterprise.com', null, 'admin', null, null, null, null, 'admin', null, null, null, null, 'admin', 'e10adc3949ba59abbe56e057f20f883e')
+
+################################### mail#################################
+mailHost: smtp.126.com
+mail.port: 25
+mailUsername: popinfo1
+mailPassword: popinfo123
+formMailAddress: popinfo@126.com
+
+
+mailHostFrom: smtp.126.com
+mailUsernameFrom: popinfo1
+mailPasswordFrom: popinfo123
+mailAddressFrom: popinfo@126.com
+
+mailUsernameTo: popinfotest
+mailPasswordTo: popinfotest123
+mailAddressTo: popinfotest@126.com
+
+###################################hadoop configuretion###########################################
+zk.quorum: 192.168.100.101,192.168.100.102,192.168.100.104
+hd.mr: 192.168.23.34:2181
+zk.port: 2181
+zk.host: 192.168.100.101,192.168.100.102,192.168.100.104
+fs.defaultFS: hdfs://masters
+fs.default.name: hdfs://192.168.100.102:9000
+fs.default.names: "hdfs://192.168.23.31:9000"
+fs.default.nameha: "hdfs://masters"
+
+wordcount.input.path: /myhome/usr/hadoop/data/input/
+wordcount.output.path: /myhome/usr/hadoop/data/output/
+delete-connection: true
+
+###################################hbase configuretion###########################################
+
+hbase.master.info.bindAddress: 192.168.3.130
+ipc.client.connection.maxidletime: 1000000
+
+############################hbase tables################################
+namespace:tizr\: tizr
+mytown:table\:columns\:mytown\:blog\: blog\:name;blog\:addr;
+info: mytown:info
+columns:mytown\:blog\: blog\:name;blog\:addr;
+member: mytown:member
+blog: mytown:blog
+################################mina  configuretion####################################
+#minaport: :188
+minaport: :1030
+################################kafka  configuretion####################################
+metadata.broker.list: 192.168.23.140:9092,192.168.23.142:9092
+
+##################防火墙#################
+firewall.username: bigdata
+firewall.password: data@JUSTHILL1221
+################################mysql  configuretion####################################
+
+mysql.driver: com.mysql.jdbc.Driver
+mysql.url: jdbc:mysql://192.168.100.103:3306/datacenter?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8
+mysql.username: root
+mysql.password: dd@2016
+#\u5B9A\u4E49\u521D\u59CB\u8FDE\u63A5\u6570
+mysql.initialSize: 100
+#\u5B9A\u4E49\u6700\u5927\u8FDE\u63A5\u6570
+mysql.maxActive: 1000
+#\u5B9A\u4E49\u6700\u5927\u7A7A\u95F2
+mysql.maxIdle: 100
+#\u5B9A\u4E49\u6700\u5C0F\u7A7A\u95F2
+mysql.minIdle: 100
+#\u5B9A\u4E49\u6700\u957F\u7B49\u5F85\u65F6\u95F4
+mysql.maxWait: 600000
+
+################################ mysql dataresult  configuretion####################################
+
+mysqlR.driver: org.apache.kylin.jdbc.Driver
+mysqlR.url: jdbc:kylin://192.168.100.102:7070/jkd
+#mysql.url: jdbc:mysql://10.3.1.95:3306/datacenter?autoReconnect: true&amp;useUnicode: true&amp;characterEncoding: UTF-8
+mysqlR.username: ADMIN
+mysqlR.password: KYLIN
+#\u5B9A\u4E49\u521D\u59CB\u8FDE\u63A5\u6570
+mysqlR.initialSize: 100
+#\u5B9A\u4E49\u6700\u5927\u8FDE\u63A5\u6570
+mysqlR.maxActive: 1000
+#\u5B9A\u4E49\u6700\u5927\u7A7A\u95F2
+mysqlR.maxIdle: 100
+#\u5B9A\u4E49\u6700\u5C0F\u7A7A\u95F2
+mysqlR.minIdle: 100
+#\u5B9A\u4E49\u6700\u957F\u7B49\u5F85\u65F6\u95F4
+mysqlR.maxWait: 600000
+
+###########################\u9632\u706B\u5899\u914D\u7F6E###########################
+# \u9632\u706B\u5899\u767B\u5F55url
+fire.wall.login.url: http://10.130.255.9/
+
+# chrome driver \u8DEF\u5F84
+chrome.driver.path: D:\\software\\bin\\selenium\\chromedriver.exe
+
+# \u6BCF\u96941\u5206\u949F\u6267\u884C
+job.grabFwFlowInfo: 0 0/1 * * * ?
+
+# \u9700\u8981\u5220\u9664\u7684\u96F6\u65F6\u6587\u4EF6\u7684\u76EE\u5F55
+tempfile.path: C:\\Users\\dell\\AppData\\Local\\Temp
+
+# \u6293\u53D6\u9632\u706B\u5899\u9875\u9762\u7684tbody id
+tbody.id: gridview-1146-body
+
+###########################\u6743\u9650\u7BA1\u7406\u53F0\u8BF7\u6C42\u5730\u5740###########################
+authority.management.path: http://192.168.100.105:8081
+
+
+
+
+
+
+---
+
+# 生产环境
+spring:
+  profiles: prod
+  datasource:
+     mysql:
+        name: mysqlDataSource
+        url: jdbc:mysql://10.130.254.28:3306/datacenter?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+        username: root
+        password: dd@2018
+        driver-class-name: com.mysql.jdbc.Driver
+        testOnBorrow: true
+        validationQuery: select 1
+     #kyli
+     kylin:
+         name: kylinDataSource
+         url: jdbc:kylin://10.130.254.20:7070/jkd
+         username: admin
+         password: KYLIN
+         driver-class-name: org.apache.kylin.jdbc.Driver
+  redis:
+       database: 0
+       host: 10.130.254.28
+       port: 6379
+       password:
+       pool:
+         max-active: 8
+         max-wait: -1
+         max-idle: 8
+         min-idle: 0
+       timeout: 0
+server:
+  port: 7011
+  max-http-header-size: 40960
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://10.130.254.28:8606/eureka/
+
+mybatis:
+      type-aliases-package: com.ziyun.academic.entity
+      mapperLocations: classpath:mapping/*.xml
+
+###################################redis############################
+
+
+#################mysql init data more sql split with ';'#################
+initData: insert into `sys_user` (`deleteflag`, `descs`, `email`, `issys`, `nickname`, `phone`, `status`, `subSystem`, `types`, `userAccount`, `userDept`, `userDesc`, `userDuty`, `userId`, `userName`, `userPassword`) values('N', '', 'admin@zjenterprise.com', null, 'admin', null, null, null, null, 'admin', null, null, null, null, 'admin', 'e10adc3949ba59abbe56e057f20f883e')
+
+################################### mail#################################
+mailHost: smtp.126.com
+mail.port: 25
+mailUsername: popinfo1
+mailPassword: popinfo123
+formMailAddress: popinfo@126.com
+
+
+mailHostFrom: smtp.126.com
+mailUsernameFrom: popinfo1
+mailPasswordFrom: popinfo123
+mailAddressFrom: popinfo@126.com
+
+mailUsernameTo: popinfotest
+mailPasswordTo: popinfotest123
+mailAddressTo: popinfotest@126.com
+
+###################################hadoop configuretion###########################################
+zk.quorum: 192.168.100.101,192.168.100.102,192.168.100.104
+hd.mr: 192.168.23.34:2181
+zk.port: 2181
+zk.host: 192.168.100.101,192.168.100.102,192.168.100.104
+fs.defaultFS: hdfs://masters
+fs.default.name: hdfs://192.168.100.102:9000
+fs.default.names: "hdfs://192.168.23.31:9000"
+fs.default.nameha: "hdfs://masters"
+
+wordcount.input.path: /myhome/usr/hadoop/data/input/
+wordcount.output.path: /myhome/usr/hadoop/data/output/
+delete-connection: true
+
+###################################hbase configuretion###########################################
+
+hbase.master.info.bindAddress: 192.168.3.130
+ipc.client.connection.maxidletime: 1000000
+
+############################hbase tables################################
+namespace:tizr\: tizr
+mytown:table\:columns\:mytown\:blog\: blog\:name;blog\:addr;
+info: mytown:info
+columns:mytown\:blog\: blog\:name;blog\:addr;
+member: mytown:member
+blog: mytown:blog
+################################mina  configuretion####################################
+#minaport: :188
+minaport: :1030
+################################kafka  configuretion####################################
+metadata.broker.list: 192.168.23.140:9092,192.168.23.142:9092
+
+##################防火墙#################
+firewall.username: bigdata
+firewall.password: data@JUSTHILL1221
+################################mysql  configuretion####################################
+
+mysql.driver: com.mysql.jdbc.Driver
+mysql.url: jdbc:mysql://10.130.254.28:3306/datacenter?autoReconnect=true&amp;useUnicode=true&amp;characterEncoding=UTF-8
+mysql.username: root
+mysql.password: dd@2016
+#\u5B9A\u4E49\u521D\u59CB\u8FDE\u63A5\u6570
+mysql.initialSize: 100
+#\u5B9A\u4E49\u6700\u5927\u8FDE\u63A5\u6570
+mysql.maxActive: 1000
+#\u5B9A\u4E49\u6700\u5927\u7A7A\u95F2
+mysql.maxIdle: 100
+#\u5B9A\u4E49\u6700\u5C0F\u7A7A\u95F2
+mysql.minIdle: 100
+#\u5B9A\u4E49\u6700\u957F\u7B49\u5F85\u65F6\u95F4
+mysql.maxWait: 600000
+
+################################ mysql dataresult  configuretion####################################
+
+mysqlR.driver: org.apache.kylin.jdbc.Driver
+mysqlR.url: jdbc:kylin://192.168.100.102:7070/jkd
+#mysql.url: jdbc:mysql://10.3.1.95:3306/datacenter?autoReconnect: true&amp;useUnicode: true&amp;characterEncoding: UTF-8
+mysqlR.username: ADMIN
+mysqlR.password: KYLIN
+#\u5B9A\u4E49\u521D\u59CB\u8FDE\u63A5\u6570
+mysqlR.initialSize: 100
+#\u5B9A\u4E49\u6700\u5927\u8FDE\u63A5\u6570
+mysqlR.maxActive: 1000
+#\u5B9A\u4E49\u6700\u5927\u7A7A\u95F2
+mysqlR.maxIdle: 100
+#\u5B9A\u4E49\u6700\u5C0F\u7A7A\u95F2
+mysqlR.minIdle: 100
+#\u5B9A\u4E49\u6700\u957F\u7B49\u5F85\u65F6\u95F4
+mysqlR.maxWait: 600000
+
+###########################\u9632\u706B\u5899\u914D\u7F6E###########################
+# \u9632\u706B\u5899\u767B\u5F55url
+fire.wall.login.url: http://10.130.255.9/
+
+# chrome driver \u8DEF\u5F84
+chrome.driver.path: D:\\software\\bin\\selenium\\chromedriver.exe
+
+# \u6BCF\u96941\u5206\u949F\u6267\u884C
+job.grabFwFlowInfo: 0 0/1 * * * ?
+
+# \u9700\u8981\u5220\u9664\u7684\u96F6\u65F6\u6587\u4EF6\u7684\u76EE\u5F55
+tempfile.path: C:\\Users\\dell\\AppData\\Local\\Temp
+
+# \u6293\u53D6\u9632\u706B\u5899\u9875\u9762\u7684tbody id
+tbody.id: gridview-1146-body
+
+###########################\u6743\u9650\u7BA1\u7406\u53F0\u8BF7\u6C42\u5730\u5740###########################
+
+

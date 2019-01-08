@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.basic.mapper.SysLabelMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.basic.entity.SysLabel">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="param_type" jdbcType="VARCHAR" property="paramType"/>
+        <result column="value" jdbcType="VARCHAR" property="value"/>
+        <result column="detail" jdbcType="VARCHAR" property="detail"/>
+        <result column="type" jdbcType="INTEGER" property="type"/>
+        <result column="type_desc" jdbcType="VARCHAR" property="typeDesc"/>
+        <result column="status" jdbcType="INTEGER" property="status"/>
+    </resultMap>
+
+    <!--查询标签列表-->
+    <select id="getLabelList" parameterType="java.util.Map" resultMap="BaseResultMap">
+        select
+		label.id,
+		label.name,
+		label.param_type,
+		label.value,
+		IFNULL(label.detail,'暂无') as detail,
+		label.type,
+		label.status,
+		IFNULL(dict.code_text,'其他') as type_desc
+        from sys_label label
+        LEFT JOIN base_dictionary dict on label.type = dict.code_value and dict.category = 'SYS_LABEL_TYPE' and dict.status = 1
+        where 1 = 1
+        <if test="type !=null and type !='' ">
+            AND label.type = #{type}
+        </if>
+    </select>
+
+    <!--更改标签状态-->
+    <update id="updateStatus" parameterType="java.util.Map">
+        update sys_label
+        set status = #{status}
+        where id = #{id}
+    </update>
+
+    <!--启用所有标签-->
+    <update id="enableAll" parameterType="java.util.Map">
+        update sys_label
+        set status = 1
+        where 1 = 1
+        <if test="type !=null and type !='' ">
+            AND type = #{type}
+        </if>
+    </update>
+
+    <!--查询标签列表-->
+    <select id="getLabelTypeList" resultType="java.util.Map">
+        select
+            dict.code_value as value,
+            dict.code_text as label
+        from base_dictionary dict
+        where dict.category = 'SYS_LABEL_TYPE' and dict.status = 1
+        order by dict.order_num
+    </select>
+</mapper>

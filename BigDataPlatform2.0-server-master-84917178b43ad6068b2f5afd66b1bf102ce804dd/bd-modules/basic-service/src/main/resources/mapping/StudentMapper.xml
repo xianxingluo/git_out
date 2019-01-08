@@ -1,0 +1,1499 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.basic.mapper.StudentMapper">
+
+    <resultMap id="BaseResultMap" type="com.ziyun.basic.entity.OwnOrgStudent">
+        <id column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="school_name" property="schoolName" jdbcType="VARCHAR"/>
+        <result column="faculty_name" property="facultyName" jdbcType="VARCHAR"/>
+        <result column="major_name" property="majorName" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!-- 返回own_org_student_type表的结果集 -->
+    <resultMap id="BaseResultDetailMap" type="com.ziyun.basic.entity.OwnOrgStudentType">
+        <id column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="school_name" property="schoolName" jdbcType="VARCHAR"/>
+        <result column="faculty_name" property="facultyName" jdbcType="VARCHAR"/>
+        <result column="major_name" property="majorName" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="impoverish" property="impoverish" jdbcType="INTEGER"/>
+        <result column="scholarship" property="scholarship" jdbcType="INTEGER"/>
+        <result column="political_code_all" property="politicalCodeAll" jdbcType="INTEGER"/>
+        <result column="political_code_thisterm" property="politicalCodeThisterm" jdbcType="INTEGER"/>
+        <result column="political_code_lastterm" property="politicalCodeLastterm" jdbcType="INTEGER"/>
+        <result column="political_code_lastyear" property="politicalCodeLastyear" jdbcType="VARCHAR"/>
+    </resultMap>
+    <!-- 学生社群画像 >社群画像>来源 -->
+    <select id="getSourceLocation" parameterType="String"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        o.num,
+        o.location,
+        concat(CONVERT (o.num / t.total * 100,DECIMAL (10, 2)),"%") AS ratio
+        FROM
+        (SELECT
+        count(e.id) AS num,
+        source_location AS location
+        FROM
+        edu_status e,
+        own_org_student_type b
+
+        WHERE
+        e.outid = b.outid
+
+
+        and e.source_location not in ("未知","江苏省")
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+
+        GROUP BY
+        location
+        )o,(
+        SELECT
+        count(*) total
+        FROM
+        edu_status e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+
+        ) t
+        ORDER BY
+        o.num DESC
+    </select>
+
+    <!--生源地分布  根据省份查询学生列表 -->
+    <select id="sourceStudentList" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT
+        b.outid,
+        b.`name` AS "name",
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        e.source_location,
+        b.sex,
+        e.birthdate
+        FROM
+        edu_status e
+        INNER JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        <!-- 省份-->
+        <if test="sourceLocation !=null and sourceLocation !=''">
+            AND e.source_location= #{sourceLocation}
+        </if>
+        <!-- 出生年月-->
+        <if test="birthdate !=null and birthdate !='' ">
+            AND left(e.birthdate,4)=#{birthdate}
+        </if>
+        <include refid="Base_where_semester"/>
+        ORDER BY
+        e.outid DESC
+    </select>
+
+    <!-- 生源地分布  根据省份查询学生列表总长度-->
+    <select id="sourceStudentListCount" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.Integer">
+        SELECT count(1) as total
+        FROM
+        edu_status e
+        INNER JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+        <!-- 省份-->
+        <if test="sourceLocation !=null and sourceLocation !=''">
+            AND e.source_location= #{sourceLocation}
+        </if>
+        <!-- 出生年月-->
+        <if test="birthdate !=null and birthdate !='' ">
+            AND left(e.birthdate,4)=#{birthdate}
+        </if>
+        ORDER BY
+        e.outid DESC
+    </select>
+
+    <!-- 学生社群画像 >社群画像>借阅习惯 -->
+    <select id="getBorrowhabits" parameterType="String"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        date_format(BORROW_DATE, '%H') AS hour,
+        COUNT(*) AS num,
+        date_format(BORROW_DATE, '%a') AS week
+        FROM
+        edu_borrow e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        group BY week,hour
+        ORDER BY week,hour
+    </select>
+    <!-- 学生社群画像 >社群画像>上网偏好-->
+    <select id="getConsume" parameterType="String"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        sum(opfare) AS num,
+        dscrp
+        FROM
+        m_rec_consume c,
+        own_org_student_type b
+        WHERE
+        c.outid = b.outid
+        and opdt &gt; '2016-07-01'
+        <include refid="Base_where_List"/>
+        GROUP BY
+        dscrp
+        ORDER BY
+        num desc
+    </select>
+
+    <!-- 学生社群画像 >社群画像>学院专业关系-->
+    <select id="getOrgTree" parameterType="String"
+            resultType="java.util.LinkedHashMap">
+        SELECT org.id,
+        org.org_name AS name,
+        (25 - org.org_level * 5) AS symbolSize,
+        org.org_level AS category,
+        'true' AS draggable,
+        IFNULL((SELECT p.id FROM own_org_tree p where p.org_code = org.parent_code),199) as pid
+        FROM
+        own_org_tree org
+        where org.org_level &lt; 3;
+    </select>
+    <!-- 学生社群画像 >社群画像>专业热度-->
+    <select id="getMajor" parameterType="String"
+            resultType="java.util.LinkedHashMap">
+        <!-- SELECT
+            count(*) AS num,
+            major_name,
+            s.LEVEL as LEVEL
+        FROM
+            edu_status s
+        WHERE
+            major_name IN ( SELECT limitTable.majorname as name FROM
+        (select majorname from (SELECT
+            count(*) topnum,
+            topStatus.major_name as majorname
+        FROM
+            edu_status topStatus
+        GROUP BY
+            major_name
+        ORDER BY
+            topnum DESC) as toPtable  limit 6) as limitTable )
+            and LEVEL &gt; '2013'
+        GROUP BY
+            major_name,
+            LEVEL
+        ORDER BY
+            major_name,	LEVEL -->
+        <!-- 按各个专业的总数进行排序,年级升序总分降序 -->
+        SELECT
+        count(*) AS num,
+        major_name,
+        s.LEVEL as LEVEL,
+        numTable.num as sum
+        FROM
+        edu_status s,
+        ( SELECT limitTable.majorname as name,limitTable.num as num FROM
+        (select majorname,toPtable.topnum as num from (SELECT
+        count(*) topnum,
+        topStatus.major_name as majorname
+        FROM
+        edu_status topStatus
+        GROUP BY
+        major_name
+        ORDER BY
+        topnum DESC) as toPtable limit 6) as limitTable ) as numTable
+        WHERE
+        s.LEVEL &gt; '2013'
+        and numTable.name = s.major_name
+        GROUP BY
+        major_name,
+        LEVEL
+        ORDER BY
+        sum asc,LEVEL asc
+    </select>
+
+
+    <!-- 个人查询条件页面：显示学生信息总条数 -->
+    <select id="countStudent" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        count(*) as sum
+        FROM
+        `edu_status` e
+        JOIN own_school_org t ON e.class=t.class_code
+        JOIN own_org_student_type b on e.outid = b.outid
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+
+    </select>
+
+    <!-- 个人查询条件页面：分页显示学生信息列表 -->
+    <select id="getPageStudent" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        e.outid,e.`name`,b.faculty_name,b.major_name,e.class,e.sex,
+        FLOOR(DATEDIFF(CURDATE(),e.birthdate)/365) AS age,
+        e.idcard_no,e.source_location,e.nation,e.political_status,
+        e.student_state,e.admission_date,e.training_level,e.research_area
+        FROM
+        `edu_status` e
+        JOIN own_school_org t ON e.class=t.class_code
+        JOIN own_org_student_type b on e.outid = b.outid
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+
+        order by e.outid desc
+        <include refid="Paging"/>
+    </select>
+
+
+    <!-- 学生社群画像 >学生画像>学生档案-->
+    <select id="getArchive" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.LinkedHashMap">
+        SELECT
+        <include refid="edu_status"/>,<include refid="political_status"/>,e.photo,o.*,t.impoverish
+        FROM
+        edu_status s left join
+        m_base_ecardphotos e on s.outid = e.outid
+        LEFT JOIN own_school_org o
+        on o.class_code=s.class
+        JOIN own_org_student_type t on t.outid=s.outid
+        WHERE
+        1=1
+        <if test="outid != null">
+            and s.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        <if test="bdate !=null and bdate !='' and  edate !=null and edate !='' ">
+            AND e.upDATEdt <![CDATA[ >= ]]> #{bdate} AND e.upDATEdt <![CDATA[ <= ]]> #{edate}
+        </if>
+    </select>
+
+    <!-- 学生归类信息 -->
+
+    <select id="getStatus" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.LinkedHashMap">
+        SELECT
+        o.num,
+        o.queryType,
+        concat(CONVERT (o.num / t.total * 100,DECIMAL (10, 1)),"%") AS ratio
+        FROM
+        (SELECT
+        count(DISTINCT e.outid) num,
+        ${sql} as queryType
+        FROM
+        edu_status e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"></include>
+        GROUP BY
+        queryType
+        )o,(
+        SELECT
+        count(DISTINCT e.outid) total
+        FROM
+        edu_status e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"></include>
+
+        ) t
+        ORDER BY
+        o.num DESC
+    </select>
+    <!-- 男女性别比，男女按学期分别统计 -->
+    <select id="getCountBySex" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT
+        a.num as value,a.sex as name,c.total as sum,concat(round(a.num/c.total*100,0),"%") as ratio
+        FROM
+        (
+        SELECT
+        count(DISTINCT (e.outid))as num,e.sex,e.outid
+        FROM `edu_status` e,
+        own_org_student_type b
+
+        WHERE
+        e.outid = b.outid
+
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+        GROUP BY sex) a,
+        (
+        SELECT count(DISTINCT e.outid) as total,e.outid
+        FROM `edu_status` e,
+        own_org_student_type b
+
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+
+        ) c
+        <!-- WHERE a.outid = c.outid -->
+        order by a.sex desc
+    </select>
+
+    <!-- 男女比率 学生列表-->
+    <select id="sexRatioStudentList" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT
+        b.outid,
+        b.`name` AS "name",
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        e.source_location,
+        b.sex,
+        e.birthdate
+        FROM
+        edu_status e
+        INNER JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        <!-- 省份-->
+        <if test="sourceLocation !=null and sourceLocation !=''">
+            AND e.source_location= #{sourceLocation}
+        </if>
+        <!-- 出生年月-->
+        <if test="birthdate !=null and birthdate !='' ">
+            AND left(e.birthdate,4)=#{birthdate}
+        </if>
+        <include refid="Base_where_semester"/>
+        ORDER BY
+        e.outid DESC
+    </select>
+
+    <!-- 男女比例 学生列表总长度-->
+    <select id="sexRatioStudentListCount" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.Integer">
+        select COUNT(b.outid) AS nums
+        FROM
+        edu_status e
+        INNER JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+
+        <include refid="Base_where_semester"/>
+        <include refid="Base_where_List"/>
+        <!-- 省份-->
+        <if test="sourceLocation !=null and sourceLocation !=''">
+            AND e.source_location= #{sourceLocation}
+        </if>
+        <!-- 出生年月-->
+        <if test="birthdate !=null and birthdate !='' ">
+            AND left(e.birthdate,4)=#{birthdate}
+        </if>
+        ORDER BY
+        e.outid DESC
+    </select>
+    <!-- 借阅归类信息  借阅时长-->
+
+    <select id="getBorrow" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.LinkedHashMap">
+        SELECT
+        ${sql} as queryType
+        FROM
+        edu_borrow e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <if test="startDate != null">
+            and e.BORROW_DATE &gt; #{startDate,jdbcType=VARCHAR}
+        </if>
+        <if test="endDate != null">
+            and e.RETURN_DATE &lt; #{endDate,jdbcType=VARCHAR}
+        </if>
+    </select>
+    <!-- 奖惩信息归类    惩罚信息-->
+
+    <select id="getPunish" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.LinkedHashMap">
+        SELECT
+        ${sql} as val
+        FROM
+        edu_punish p ,
+        own_org_student_type b
+        where p.outid=b.outid
+
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            and CONVERT(p.punish_date,datetime) <![CDATA[ >= ]]>
+            #{bdate}
+            and CONVERT(p.punish_date,datetime) <![CDATA[ <= ]]>
+            #{edate}
+        </if>
+        <!-- 第几学期-->
+        <if test="termNum !=null and termNum !=''">
+            b.term_num=#{termNum}
+        </if>
+
+
+    </select>
+
+    <!-- 奖惩信息归类    奖励信息-->
+    <select id="getScholarship" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.LinkedHashMap">
+        SELECT
+        ${sql} as val
+        FROM
+        edu_status e join edu_scholarship p on e.outid = p.outid,
+        own_org_student_type b
+        where p.outid=b.outid
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            <![CDATA[
+	    		and p.year in(#{bdate},#{edate})
+	    	]]>
+            AND p.start_date <![CDATA[ >= ]]> #{bdate}
+            AND p.start_date <![CDATA[ <= ]]> #{edate}
+        </if>
+
+    </select>
+
+
+    <select id="countByBirthday" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.LinkedHashMap">
+        SELECT
+        o.num as value,
+        o.queryType as name,
+        concat(CONVERT (o.num / t.total * 100,DECIMAL (10, 2)),"%") AS ratio
+        FROM
+        (SELECT
+        count(*) num,
+        left(e.birthdate, 4) as queryType
+        FROM
+        edu_status e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+
+        GROUP BY
+        queryType
+        ) o,(
+        SELECT
+        count(*) total
+        FROM
+        edu_status e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+
+        ) t
+        ORDER BY
+        o.queryType
+    </select>
+
+    <!-- 年龄分布  学生列表-->
+    <select id="countByBrithdryStudentList" parameterType="com.ziyun.basic.vo.ParamsStatus"
+            resultType="java.util.Map">
+        SELECT
+        b.outid,
+        b.`name` AS "name",
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        e.source_location,
+        e.birthdate,
+        b.sex
+        FROM
+        edu_status e
+        JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+        <!-- 省份-->
+        <if test="sourceLocation !=null and sourceLocation !=''">
+            AND e.source_location= #{sourceLocation}
+        </if>
+        <!-- 出生年月-->
+        <if test="birthdate !=null and birthdate !='' ">
+            AND left(e.birthdate,4)=#{birthdate}
+        </if>
+        ORDER BY e.outid desc
+    </select>
+
+    <!--年龄分布  学生列表总长度 -->
+    <select id="countByBrithdryStudentListCount" parameterType="com.ziyun.basic.vo.ParamsStatus"
+            resultType="java.lang.Integer">
+        SELECT count(b.outid) AS nums
+        FROM
+        edu_status e
+        JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_semester"/>
+        <!-- 省份-->
+        <if test="sourceLocation !=null and sourceLocation !=''">
+            AND e.source_location= #{sourceLocation}
+        </if>
+        <!-- 出生年月-->
+        <if test="birthdate !=null and birthdate !='' ">
+            AND left(e.birthdate,4)=#{birthdate}
+        </if>
+        ORDER BY e.outid desc
+    </select>
+
+
+    <!-- 奖惩列表分页 -->
+
+    <!-- 学生社群画像 >社群画像>奖励列表-->
+    <select id="scholarshipPageList" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        e.name,b.major_name,e.outid,p.`year`,p.type,FORMAT(p.amount,0) as money
+        FROM
+        edu_status e
+        RIGHT JOIN edu_scholarship p ON e.outid = p.outid
+        JOIN own_org_student_type b on e.outid = b.outid
+
+        where 1=1
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            <![CDATA[
+	    		and p.year in(#{bdate},#{edate})
+	    	]]>
+        </if>
+        <!-- 学号outid、姓名：模糊搜索-->
+        <if test="likes != null">
+            and (e.outid like concat(#{likes,jdbcType=VARCHAR},'%') or e.name like concat(#{likes,jdbcType=VARCHAR},'%')
+            )
+        </if>
+        <if test="typeArr != null and typeArr.length > 0">
+            and p.type in
+            <foreach collection="typeArr" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <if test="startDate !=null and startDate != ''and  endDate !=null and endDate !='' ">
+            AND p.start_date <![CDATA[ >= ]]> #{startDate} AND p.start_date <![CDATA[ <= ]]> #{endDate}
+        </if>
+        <!-- 第几学期-->
+        <!-- <if test="termNum !=null and termNum != '' ">
+             AND b.term_num=#{termNum}
+         </if>-->
+        ORDER BY
+        e.outid
+        <include refid="Paging"/>
+    </select>
+    <!-- 学生社群画像 >社群画像>惩罚列表-->
+    <select id="punishPageList" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        e.outid,e.major_name,e.name,p.class_name,p.punish_type,p.punish_reasion,p.punish_date,b.class_code
+        FROM
+        edu_status e
+        RIGHT JOIN edu_punish p ON e.outid = p.outid
+        JOIN own_org_student_type b on e.outid = b.outid
+        where 1=1
+
+        <include refid="Base_where_List"/>
+        <!-- 学号outid、姓名：模糊搜索-->
+        <if test="likes != null">
+            and (e.outid like concat(#{likes,jdbcType=VARCHAR},'%') or e.name like concat(#{likes,jdbcType=VARCHAR},'%')
+            )
+        </if>
+        <if test="bdate != null and bdate != '' ">
+            and CONVERT(p.punish_date,datetime) <![CDATA[ >= ]]>
+            #{bdate}
+            and CONVERT(p.punish_date,datetime) <![CDATA[ <= ]]>
+            #{edate}
+        </if>
+        <!-- 第几学期-->
+        <!-- <if test="termNum !=null and termNum != '' ">
+             AND b.term_num=#{termNum}
+         </if>-->
+        <if test="punishType != null">
+            and p.punish_type = #{punishType}
+        </if>
+        <include refid="Paging"/>
+    </select>
+    <!-- 学生社群画像 >社群画像>奖励列表长度-->
+    <select id="scholarshipPageListLength" parameterType="com.ziyun.basic.vo.Params"
+            resultType="Long">
+        SELECT
+        count(*)
+        FROM
+        edu_status e
+        RIGHT JOIN edu_scholarship p ON e.outid = p.outid
+        JOIN own_org_student_type b on e.outid = b.outid
+
+        where 1=1
+
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            <![CDATA[
+	    		and p.year in(#{bdate},#{edate})
+	    	]]>
+        </if>
+        <!-- 学号outid、姓名：模糊搜索-->
+        <if test="likes != null">
+            and (e.outid like concat(#{likes,jdbcType=VARCHAR},'%') or e.name like concat(#{likes,jdbcType=VARCHAR},'%')
+            )
+        </if>
+        <if test="typeArr != null and typeArr.length > 0">
+            and p.type in
+            <foreach collection="typeArr" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 第几学期-->
+        <!--<if test="termNum !=null and termNum != '' ">
+            AND b.term_num=#{termNum}
+        </if>-->
+
+    </select>
+    <!-- 获奖次数，根据获奖次数来分别统计男女人数。比如获奖一次的男多少女多少 -->
+    <select id="getScholarshipCountBysex" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="map">
+        SELECT count(*) as sum,a.num,a.sex
+        FROM
+        (SELECT
+        count(p.outid) as num,e.sex
+        FROM
+        edu_status e
+        RIGHT JOIN edu_scholarship p ON e.outid = p.outid
+        JOIN own_org_student_type b on e.outid = b.outid
+
+        where 1=1
+
+        <include refid="Base_where_List"/>
+        <if test="bdate !=null and bdate != '' and edate !=null and edate !='' ">
+            <![CDATA[
+			 	AND 	p.YEAR >= left(#{bdate},4)
+			 	AND 	p.YEAR <= left(#{edate},4)
+
+              ]]>
+        </if>
+        <!-- 第几学期-->
+        <!--<if test="termNum !=null and termNum != '' ">
+            AND b.term_num=#{termNum}
+        </if>-->
+
+        GROUP BY p.outid) a
+        where a.num>0
+        GROUP BY a.num,a.sex
+    </select>
+
+    <!-- 奖罚特征  获奖次数  根据获奖次数获取学生列表-->
+    <select id="" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="map">
+        SELECT
+        NAME,
+        outid,
+        class_code
+        FROM
+        own_org_student_type
+        WHERE
+        outid IN (
+        SELECT
+        outid
+        FROM
+        (
+        SELECT
+        count(p.outid) AS num,
+        e.outid
+        FROM
+        edu_status e
+        RIGHT JOIN edu_scholarship p ON e.outid = p.outid
+        JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        GROUP BY
+        p.outid
+        ) a
+        WHERE
+        a.num = 2
+        GROUP BY
+        a.num,
+        outid
+        )
+    </select>
+    <!-- 获奖类型 -->
+    <select id="getScholarshipTypeCount" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="map">
+        SELECT a.num,a.type
+        FROM
+        (
+        SELECT
+        count(*) as num,p.type
+        FROM edu_scholarship p
+        JOIN own_org_student_type b on p.outid = b.outid
+        JOIN edu_status e on e.outid=b.outid
+
+        where 1=1
+
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            <![CDATA[
+		    		and p.year in(left(#{bdate},4),left(#{edate},4))
+		    	]]>
+        </if>
+        <!-- 第几学期-->
+        <!--<if test="termNum !=null and termNum != '' ">
+            AND b.term_num=#{termNum}
+        </if>-->
+        GROUP BY p.type) a
+        ORDER BY a.num desc
+    </select>
+
+
+    <!-- 学生社群画像 >社群画像>惩罚列表长度-->
+    <select id="punishPageListLength" parameterType="com.ziyun.basic.vo.Params"
+            resultType="Long">
+        SELECT
+        count(*)
+        FROM
+        edu_status e
+        RIGHT JOIN edu_punish p ON e.outid = p.outid
+        JOIN own_org_student_type b on e.outid = b.outid
+        where 1=1
+
+        <if test="bdate != null and bdate != '' ">
+            and CONVERT(p.punish_date,datetime) <![CDATA[ >= ]]>
+            #{bdate}
+            and CONVERT(p.punish_date,datetime) <![CDATA[ <= ]]>
+            #{edate}
+        </if>
+        <include refid="Base_where_List"/>
+        <!-- 学号outid、姓名：模糊搜索-->
+        <if test="likes != null">
+            and (e.outid like concat(#{likes,jdbcType=VARCHAR},'%') or e.name like concat(#{likes,jdbcType=VARCHAR},'%')
+            )
+        </if>
+        <if test="punishType != null">
+            and p.punish_type = #{punishType}
+        </if>
+        <!-- 第几学期-->
+        <!-- <if test="termNum !=null and termNum != '' ">
+             AND b.term_num=#{termNum}
+         </if>-->
+        ORDER BY
+        e.outid
+    </select>
+
+    <!--统计各类处罚内容  -->
+    <select id="getPunishCount" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="map">
+        SELECT
+        count(p.punish_type) as value,
+        p.punish_type as name
+        FROM edu_punish p JOIN
+        own_org_student_type b ON p.outid=b.outid
+        JOIN edu_status e on e.outid=b.outid
+
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            and CONVERT(p.punish_date,datetime) <![CDATA[ >= ]]>
+            #{bdate}
+            and CONVERT(p.punish_date,datetime) <![CDATA[ <= ]]>
+            #{edate}
+        </if>
+        <!-- 第几学期-->
+        <!--<if test="termNum !=null and termNum != '' ">
+            AND b.term_num=#{termNum}
+        </if>-->
+
+        GROUP BY p.punish_type
+    </select>
+
+    <!-- 奖罚特征 处罚人员  根据处罚类型 显示学生列表-->
+    <select id="getPunishStudentList" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.Map">
+        SELECT
+        NAME,
+        outid,
+        class_code
+        FROM
+        own_org_student_type
+        WHERE
+        outid IN (
+        SELECT
+        b.outid
+        FROM
+        edu_punish p
+        JOIN own_org_student_type b ON p.outid = b.outid
+        WHERE
+        1=1
+        <if test="punishType !=null and punishType !='' ">
+            and punish_type = #{punishType}
+        </if>
+        <include refid="Base_where_List"/>
+        <if test="bdate != null and bdate != '' ">
+            and CONVERT(p.punish_date,datetime) <![CDATA[ >= ]]>
+            #{bdate}
+            and CONVERT(p.punish_date,datetime) <![CDATA[ <= ]]>
+            #{edate}
+        </if>
+
+        ORDER BY
+        b.outid
+        )
+    </select>
+
+    <select id="radacctTime" parameterType="com.ziyun.basic.vo.ParamsStatus"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        ${sql} as val
+        FROM
+        radacct_time e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        <if test="startDate != null">
+            and e.acctstarttime <![CDATA[ >= ]]>  #{startDate,jdbcType=VARCHAR}
+        </if>
+        <if test="endDate != null">
+            and e.acctstoptime <![CDATA[ <= ]]> #{endDate,jdbcType=VARCHAR}
+        </if>
+        <if test="bdate != null">
+            and e.acctstarttime <![CDATA[ >= ]]>  #{bDate,jdbcType=VARCHAR}
+        </if>
+        <if test="edate != null">
+            and e.acctstoptime <![CDATA[ <= ]]> #{eDate,jdbcType=VARCHAR}
+        </if>
+
+    </select>
+
+    <select id="hotTime" parameterType="com.ziyun.basic.vo.ParamsStatus"
+            resultType="java.util.LinkedHashMap">
+        SELECT
+        count(*) AS num,
+        DATE_FORMAT(acctstarttime, '%H') AS HOUR
+        FROM
+        radacct_time e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        AND DATE_FORMAT(acctstarttime, '%H') > 5
+        <include refid="Base_where_List"/>
+        <if test="startDate != null">
+            and e.acctstarttime &gt; #{startDate,jdbcType=VARCHAR}
+        </if>
+        <if test="endDate != null">
+            and e.acctstoptime &lt; #{endDate,jdbcType=VARCHAR}
+        </if>
+        GROUP BY
+        HOUR
+        ORDER BY
+        num DESC
+    </select>
+
+    <!-- 性别比例按班级分组导出  -->
+    <select id="genderStatistics" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT org.school_name,org.faculty_name,org.major_name,t.class,
+        sum( if( sex = '男', num, 0 ) ) AS menSum,
+        sum( if( sex = '女', num, 0 ) ) AS womenSum
+        from(
+        select e.class,e.sex,COUNT(*) as num
+        from edu_status e,
+        own_org_student_type b
+        where e.outid = b.outid
+        <include refid="Base_where_List"/>
+        GROUP BY e.class,e.sex
+        ) t
+        LEFT JOIN own_school_org org on t.class = org.class_code
+        GROUP BY t.class
+        ORDER BY org.school_code,org.faculty_code,org.major_code,org.class_code,menSum DESC
+    </select>
+
+    <!--出生年月按班级分组导出  出生年份的列是动态的，用excel模版无法完成动态生成的列-->
+    <!-- <select id="birthdayDistribution" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT org.school_name,org.faculty_name,org.major_name,t.class,
+            sum( if( bornYear = '1987', num, 0 ) ) AS year1987,
+            sum( if( bornYear = '1989', num, 0 ) ) AS year1989,
+            sum( if( bornYear = '1990', num, 0 ) ) AS year1990,
+            sum( if( bornYear = '1991', num, 0 ) ) AS year1991,
+            sum( if( bornYear = '1992', num, 0 ) ) AS year1992,
+            sum( if( bornYear = '1993', num, 0 ) ) AS year1993,
+            sum( if( bornYear = '1994', num, 0 ) ) AS year1994,
+            sum( if( bornYear = '1995', num, 0 ) ) AS year1995,
+            sum( if( bornYear = '1996', num, 0 ) ) AS year1996,
+            sum( if( bornYear = '1997', num, 0 ) ) AS year1997,
+            sum( if( bornYear = '1998', num, 0 ) ) AS year1998,
+            sum( if( bornYear = '1999', num, 0 ) ) AS year1999,
+            sum( if( bornYear = '2000', num, 0 ) ) AS year2000
+        FROM (
+            SELECT
+                e.class,
+                count(*) num,
+                left(e.birthdate, 4) as bornYear
+            FROM
+                edu_status e,
+                own_org_student_type b
+            WHERE
+                e.outid = b.outid
+                <include refid="Base_where_List" />
+            GROUP BY
+                    bornYear,e.class
+            ORDER BY
+                    num) t
+        LEFT JOIN own_school_org org on t.class = org.class_code
+        GROUP BY t.class
+        ORDER BY org.school_code,org.faculty_code,org.major_code,org.class_code
+    </select> -->
+
+    <!--出生年月按班级分组导出  没有行转列-->
+    <select id="birthdayDistribution" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT org.school_name,org.faculty_name,org.major_name,t.class ,t.bornYear,t.num
+        FROM
+        (SELECT
+        e.class,
+        count(*) num,
+        left(e.birthdate, 4) as bornYear
+        FROM
+        edu_status e,
+        own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        GROUP BY
+        bornYear,e.class
+        ORDER BY
+        num desc) t
+        LEFT JOIN own_school_org org on t.class = org.class_code
+        ORDER BY
+        org.school_code,org.faculty_code,org.major_code,org.class_code,t.num DESC
+    </select>
+
+    <!-- 来源省份按班级汇总 -->
+    <select id="proviceFrom" parameterType="String" resultType="java.util.Map">
+        SELECT org.school_name,org.faculty_name,org.major_name,t.class,
+        sum( if( location = '江苏', num, 0 ) ) AS jiangSu,
+        sum( if( location = '江西', num, 0 ) ) AS jiangXi,
+        sum( if( location = '山西', num, 0 ) ) AS shanXi,
+        sum( if( location = '安徽', num, 0 ) ) AS anHui,
+        sum( if( location = '四川', num, 0 ) ) AS siChuan,
+        sum( if( location = '河南', num, 0 ) ) AS heNan,
+        sum( if( location = '广东', num, 0 ) ) AS guangDong,
+        sum( if( location = '湖北', num, 0 ) ) AS huBei,
+        sum( if( location = '河北', num, 0 ) ) AS heBei,
+        sum( if( location = '天津', num, 0 ) ) AS tianJin,
+        sum( if( location = '黑龙江', num, 0 ) ) AS heiLongJiang,
+        sum( if( location = '上海', num, 0 ) ) AS shangHai,
+        sum( if( location = '辽宁', num, 0 ) ) AS liaoNing,
+        sum( if( location = '山东', num, 0 ) ) AS shanDong,
+        sum( if( location = '浙江', num, 0 ) ) AS zheJiang,
+        sum( if( location = '福建', num, 0 ) ) AS fuJian,
+        sum( if( location = '贵州', num, 0 ) ) AS guiZhou,
+        sum( if( location = '云南', num, 0 ) ) AS yunNan,
+        sum( if( location = '重庆', num, 0 ) ) AS chongQin,
+        sum( if( location = '广西', num, 0 ) ) AS guangXi,
+        sum( if( location = '陕西', num, 0 ) ) AS shan_Xi,
+        sum( if( location = '宁夏', num, 0 ) ) AS ningXia,
+        sum( if( location = '北京', num, 0 ) ) AS beiJing,
+        sum( if( location = '湖南', num, 0 ) ) AS huNan,
+        sum( if( location = '新疆', num, 0 ) ) AS xinJiang,
+        sum( if( location = '甘肃', num, 0 ) ) AS ganSu,
+        sum( if( location = '内蒙', num, 0 ) ) AS neiMeng,
+        sum( if( location = '吉林', num, 0 ) ) AS jiLin,
+        sum( if( location = '青海', num, 0 ) ) AS qingHai,
+        sum( if( location = '西藏', num, 0 ) ) AS xiZang,
+        sum( if( location = '海南', num, 0 ) ) AS haiNan,
+        sum( if( location = '香港', num, 0 ) ) AS xiangGang,
+        sum( if( location = '澳门', num, 0 ) ) AS aoMen,
+        sum( if( location = '台湾', num, 0 ) ) AS taiWan
+
+        FROM(
+        SELECT
+        e.class,
+        e.source_location AS location,
+        count(e.id) AS num
+        FROM
+        edu_status e JOIN own_org_student_type b
+        WHERE
+        e.outid = b.outid
+        <include refid="Base_where_List"/>
+        GROUP BY
+        location, e.class
+        ORDER BY num DESC
+        ) t
+        LEFT JOIN own_school_org org on t.class = org.class_code
+        GROUP BY
+        t.class
+        ORDER BY
+        org.school_code,org.faculty_code,org.major_code,org.class_code
+    </select>
+
+    <!-- 个人画像  获取本学期，上学期，下学年的开始时间，结束时间-->
+    <select id="getTermDate" parameterType="java.lang.String" resultType="java.util.LinkedHashMap">
+        select starttime,endtime,semester from term_time_dict where termtype=1 order by starttime desc limit 5
+    </select>
+
+    <!-- 奖罚特征 获奖类型  根据获奖类型展示学生列表 -->
+    <select id="getgetScholarshipStudentList" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT
+        NAME,
+        outid,
+        class_code
+        FROM
+        own_org_student_type
+        WHERE
+        outid IN (
+        SELECT
+        a.outid
+        FROM
+        (
+        SELECT
+        count(p.outid) AS num,
+        e.outid
+        FROM
+        edu_status e
+        RIGHT JOIN edu_scholarship p ON e.outid = p.outid
+        JOIN own_org_student_type b ON e.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        p.outid
+        ) a
+        WHERE
+        1=1
+        <if test="scholarshipNum !=null and scholarshipNum lt 8">
+            AND a.num = #{scholarshipNum}
+        </if>
+        <if test="scholarshipNum !=null and scholarshipNum == 8">
+            AND a.num <![CDATA[ >= ]]>#{scholarshipNum}
+        </if>
+
+        GROUP BY
+        a.num,
+        a.outid
+        )
+    </select>
+
+    <!--求own_org_student_type 根据0，1，2，3标志，对应 0-群众 1-团员，2-预备党员，3-党员 t为表求own_org_student_type-->
+    <sql id="political_status">
+        CASE
+        WHEN t.political_code_all=1 then '团员'
+        when t.political_code_all=2 then '预备党员'
+        when t.political_code_all=3 then '党员'
+        else '群众'
+        END political_status
+
+    </sql>
+    <sql id="Base_where_semester">
+        <if test="semester != null and semester != ''">
+            <![CDATA[
+    		and CONVERT(concat(SUBSTRING(e.admission_date,1,4),'-09-01'),datetime) <=
+    		CONVERT(concat(SUBSTRING(#{semester},1,4),'-09-01'),datetime)
+    		and CONVERT(concat(SUBSTRING(e.admission_date,1,4),'-09-01'),datetime) >=
+    		CONVERT(concat(SUBSTRING(#{semester},1,4)-4,'-09-01'),datetime)
+    	]]>
+        </if>
+    </sql>
+
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+
+        <!-- 学号outid-->
+        <if test="outid != null">
+            and b.outid LIKE CONCAT("%",#{outid},"%")
+        </if>
+        <!-- 学号多选-->
+        <!--<if test="outidArr !=null and outidArr.length > 0">
+            AND b.outid IN
+            <foreach collection="outidArr" item="outid" open="(" close=")" separator=",">
+                #{outid}
+            </foreach>
+        </if>-->
+        <!--  根据学生名称 模糊查询-->
+        <if test="name !=null and name !='' ">
+            AND b.NAME LIKE CONCAT("%",#{name},"%")
+        </if>
+        <!-- 特定人群 -->
+        <!-- 优等生 -->
+        <if test="scholarship == 1">
+            and b.scholarship = 1
+        </if>
+        <!-- 貧困生 -->
+        <if test="impoverish == 1">
+            and b.impoverish = 1
+        </if>
+
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <!--<if test="politicalCode != null">
+            <if test="timeframe == null">
+                and b.political_code_all=#{politicalCode}
+            </if>
+            <if test="timeframe == 1">
+                and b.political_code_thisterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 2">
+                and b.political_code_lastterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 3">
+                and b.political_code_lastyear=#{politicalCode}
+            </if>
+        </if> -->
+        <!-- 政治面貌-->
+        <if test="politicalCode != null">
+            and b.political_code_all=#{politicalCode}
+        </if>
+
+
+        <!--入学年份-->
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND b.enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+        <!--学籍状态-->
+        <if test="eduStatus !=null and eduStatus != '' ">
+            AND b.edu_status like CONCAT("%",#{eduStatus},"%")
+        </if>
+        <!-- 性别-->
+        <if test="sex !=null and sex !='' ">
+            AND b.sex =#{sex}
+        </if>
+
+    </sql>
+
+    <!--edu_status表中除了political_status的所有字段-->
+    <sql id="edu_status">
+        s.id, s.outid, s.name, s.sex, s.faculty, s.major_code, s.major_name, s.majorField_name, s.class,
+        s.schooling_length, s.level,
+        s.campus, s.birthdate, s.idcard_no, s.enrollment_year, s.student_state, s.admission_date, s.training_level,
+        s.research_area,
+        s.nation, s.native_place , s. source_location , s. remarks ,s. school_code, s. graduate_status , s.exam_no
+    </sql>
+    <sql id="political_where_sql">
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="timeframe == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and t.political_code_all=#{politicalCode}
+            </if>
+            <if test="timeframe == 1">
+                and t.political_code_thisterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 2">
+                and t.political_code_lastterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 3">
+                and t.political_code_lastyear=#{politicalCode}
+            </if>
+        </if>
+    </sql>
+
+    <!--分页条件 -->
+    <sql id="Paging">
+        <!-- 分页最好统一：bootstrap-table分页和自己的ajax请求的分页采用一样的参数 -->
+        <!-- <if test="pageNumber!=null"> limit #{pageNum} ,#{pageSize} </if> -->
+
+        <!-- bootstrap table 分页 -->
+        <if test="start!=null">limit #{start
+			,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <select id="getScholarshipTypeStudentList" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.util.Map">
+        SELECT
+        b. NAME,
+        b.outid,
+        b.class_code
+        FROM
+        edu_scholarship p
+        JOIN own_org_student_type b ON p.outid = b.outid
+        JOIN edu_status e ON e.outid = b.outid
+        WHERE
+        1=1
+        <if test="winningType !=null and winningType.length >0 ">
+            AND p.type IN
+            <foreach collection="winningType" item="win" open="(" close=")" separator=",">
+                #{win}
+            </foreach>
+
+        </if>
+        <include refid="Base_where_List"/>
+
+    </select>
+    <select id="getEnrollmentYearById" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.lang.String">
+        select enrollment_year from own_org_student_type WHERE outid=#{outid}
+    </select>
+    <select id="getScholarshipPunishStudentList" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.util.Map">
+        SELECT DISTINCT
+        a.outid,
+        a. name,
+        a.school_name,
+        a.faculty_name,
+        a.major_name,
+        a.class_code,
+        a.sum,
+        CASE
+        WHEN e.punish_type IS NULL THEN
+        '无'
+        WHEN e.punish_type IS NOT NULL THEN
+        '有'
+        END AS ifPunish
+        FROM
+        (
+        SELECT
+        b.outid,
+        b. NAME,
+        b.school_name,
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        COUNT(p.outid) AS sum
+        FROM
+        edu_scholarship p
+        JOIN own_org_student_type b ON p.outid = b.outid
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        p.outid
+        UNION
+        SELECT
+        b.outid,
+        b. NAME,
+        b.school_name,
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        0 AS scholarshipNum
+        FROM
+        own_org_student_type b
+        WHERE
+        b.outid NOT IN (
+        SELECT
+        p.outid
+        FROM
+        edu_scholarship p
+        )
+        <include refid="Base_where_List"/>
+        ) a
+        LEFT JOIN edu_punish e ON a.outid = e.outid
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getScholarshipPunishStudentCount" parameterType="com.ziyun.basic.vo.Params"
+            resultType="java.lang.Long">
+        SELECT count(1) FROM (
+        SELECT DISTINCT
+        a.outid,
+        a. NAME,
+        a.school_name,
+        a.faculty_name,
+        a.major_name,
+        a.class_code,
+        a.sum,
+        CASE
+        WHEN e.punish_type IS NULL THEN
+        '无'
+        WHEN e.punish_type IS NOT NULL THEN
+        '有'
+        END AS ifPunish
+        FROM
+        (
+        SELECT
+        b.outid,
+        b. NAME,
+        b.school_name,
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        COUNT(p.outid) AS sum
+        FROM
+        edu_scholarship p
+        JOIN own_org_student_type b ON p.outid = b.outid
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        p.outid
+        UNION
+        SELECT
+        b.outid,
+        b. NAME,
+        b.school_name,
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        0 AS scholarshipNum
+        FROM
+        own_org_student_type b
+        WHERE
+        b.outid NOT IN (
+        SELECT
+        p.outid
+        FROM
+        edu_scholarship p
+        )
+        <include refid="Base_where_List"/>
+        ) a
+        LEFT JOIN edu_punish e ON a.outid = e.outid
+        ) k ORDER BY k.outid DESC
+    </select>
+
+    <select id="selectByOutid" parameterType="java.lang.String" resultType="java.util.Map">
+        select name AS "name",major_name,class_code from own_org_student_type where outid=#{outid}
+    </select>
+
+    <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+        select outid,name AS "name",major_name,class_code from own_org_student_type where outid=#{outid}
+    </select>
+
+    <select id="getStudents" parameterType="com.ziyun.basic.vo.Params" resultType="java.util.Map">
+        SELECT
+        outid,
+        NAME AS "name",
+        faculty_name,
+        major_name,
+        class_code
+        FROM
+        own_org_student_type b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        ORDER BY
+        outid DESC
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getStudentSize" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.Long">
+        SELECT
+        count(1)
+        FROM
+        own_org_student_type b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- 查询class_code，判断该学生是否是毕业生-->
+    <select id="isGraduationStudent" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT count(1) FROM own_org_student_type
+        WHERE outid=#{outid} and RIGHT(LEFT(class_code,3),2) = RIGHT(year(date_add(NOW(), interval -4 year)),2)
+    </select>
+
+    <!--  获取全部学生的：人员相关信息 -->
+    <select id="selectAllDetail" parameterType="com.ziyun.basic.vo.Params" resultMap="BaseResultDetailMap">
+        select
+        *
+        from own_org_student_type
+    </select>
+
+
+    <!-- 查询学生列表详细-->
+    <select id="getStudentDetails" parameterType="com.ziyun.basic.vo.Params" resultType="map">
+        SELECT
+        b.outid,
+        b. NAME as "name",
+        b.school_name,
+        b.faculty_name,
+        b.major_name,
+        b.class_code,
+        e.sex as "gender",
+        LEFT (NOW(), 4) - LEFT (e.birthdate, 4) as age,
+        e.admission_date,
+        e.native_place
+        FROM
+        own_org_student_type b
+        INNER JOIN edu_status e ON b.outid = e.outid
+
+        WHERE b.edu_status like '%1-%'
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- 获取所有在籍生的学号-->
+    <select id="getStudentOutids" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        SELECT outid FROM own_org_student_type WHERE edu_status like '%1-%';
+    </select>
+
+    <!--活动积分排名-->
+    <select id="getActiveRanking" parameterType="com.ziyun.basic.vo.ParamsStatus" resultType="java.util.Map">
+        SELECT
+        a.outid,
+        NAME as name,
+        faculty_name,
+        major_name,
+        class_code,
+        credit,
+        integration
+        FROM
+        outid_credit_integration_jkd_all a
+        INNER JOIN own_org_student_type b ON a.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+        ORDER BY
+        <if test="sort != null and sort !='' and sort == 'outid'">
+            a.outid <![CDATA[  ]]>
+            <if test="order != null and order !=''and order == 'descending'">
+                DESC
+            </if>
+            <if test="order != null and order !='' and order == 'ascending'">
+                asc
+            </if>
+        </if>
+        <if test="sort != null and sort !='' and sort != 'outid'">
+            ${sort} <![CDATA[  ]]>
+            <if test="order != null and order !=''and order == 'descending'">
+                DESC
+            </if>
+            <if test="order != null and order !='' and order == 'ascending'">
+                asc
+            </if>
+        </if>
+
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getActiveRankingSize" parameterType="com.ziyun.basic.vo.ParamsStatus"
+            resultType="java.lang.Integer">
+        SELECT
+        count(a.outid) as num
+        FROM
+        outid_credit_integration_jkd_all a
+        INNER JOIN own_org_student_type b ON a.outid = b.outid
+        WHERE
+        1 = 1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <select id="getPunishType" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        SELECT DISTINCT punish_type from early_warning_academic_student WHERE punish_type != '';
+    </select>
+</mapper>

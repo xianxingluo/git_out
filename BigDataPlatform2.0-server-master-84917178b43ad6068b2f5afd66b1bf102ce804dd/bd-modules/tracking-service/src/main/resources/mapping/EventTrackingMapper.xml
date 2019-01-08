@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.tracking.mapper.EventTrackingMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.tracking.entity.EventTracking">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="code" jdbcType="VARCHAR" property="code"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="type" jdbcType="VARCHAR" property="type"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.ziyun.tracking.entity.EventTracking">
+        insert into sys_event_tracking
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="code != null and code != ''">
+                code,
+            </if>
+            <if test="name != null and name != ''">
+                name,
+            </if>
+            <if test="type != null and type != ''">
+                type,
+            </if>
+            <if test="username != null and username != ''">
+                username,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="code != null and code != ''">
+                #{code,jdbcType=VARCHAR},
+            </if>
+            <if test="name != null and name != ''">
+                #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="type != null and type != ''">
+                #{type,jdbcType=VARCHAR},
+            </if>
+            <if test="username != null and username != ''">
+                #{username,jdbcType=VARCHAR},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+
+</mapper>

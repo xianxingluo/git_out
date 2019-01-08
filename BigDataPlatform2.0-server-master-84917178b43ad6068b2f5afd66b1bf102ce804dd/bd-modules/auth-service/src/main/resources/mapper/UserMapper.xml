@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.auth.mapper.UserMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.common.entity.User">
+        <!--
+          WARNING - @mbg.generated
+        -->
+        <id column="user_id" jdbcType="BIGINT" property="id"/>
+        <result column="nickname" jdbcType="VARCHAR" property="nickname"/>
+        <result column="username" jdbcType="VARCHAR" property="username"/>
+        <result column="password" jdbcType="VARCHAR" property="password"/>
+        <result column="sex" jdbcType="VARCHAR" property="sex"/>
+        <result column="salt" jdbcType="VARCHAR" property="salt"/>
+        <result column="remark" jdbcType="VARCHAR" property="remark"/>
+        <result column="email" jdbcType="VARCHAR" property="email"/>
+        <result column="mobile" jdbcType="VARCHAR" property="mobile"/>
+        <result column="status" jdbcType="TINYINT" property="status"/>
+        <result column="create_user_id" jdbcType="BIGINT" property="createUserId"/>
+        <result column="create_role_id" jdbcType="BIGINT" property="createRoleId"/>
+        <result column="last_login_time" jdbcType="TIMESTAMP" property="lastLoginTime"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+        <result column="is_super_admin" jdbcType="INTEGER" property="isSuperAdmin"/>
+        <result column="is_delete" jdbcType="INTEGER" property="isDelete"/>
+    </resultMap>
+
+
+    <sql id="base_limit">
+        limit #{start},#{limit}
+    </sql>
+
+
+    <sql id="Base_where_list">
+        <!-- 用户名-->
+        <if test="username !=null and username != '' ">
+            and username LIKE concat("%",#{username},"%")
+        </if>
+        <!-- 昵称-->
+        <if test="nickname != null and nickname != ''">
+            and nickname like concat("%",#{nickname},"%")
+        </if>
+        <!--手机号 -->
+        <if test="mobile != null and mobile != null ">
+            and mobile LIKE concat("%",#{mobile},"%")
+        </if>
+        <!-- 创建用户id-->
+        <if test="createUserId != null and createUserId !=''">
+            and create_user_id = #{createUserId}
+        </if>
+
+        <!-- 创建角色id-->
+        <if test="createRoleId != null and createRoleId !=''">
+            and create_role_id = #{createRoleId}
+        </if>
+    </sql>
+    <!--插入用户 角色中间表（auth_user_role_2）-->
+    <insert id="insertUserAndRole" parameterType="com.ziyun.common.entity.User">
+        INSERT INTO auth_user_role_2 (user_id,role_id)
+        VALUES
+        <foreach collection="roleIds" item="roleId" separator=",">
+            (#{userId},#{roleId})
+        </foreach>
+    </insert>
+
+    <!--插入用户 数据权限中间表（auth_user_data）-->
+    <insert id="insertUserAndDate" parameterType="com.ziyun.common.entity.User">
+        INSERT INTO auth_user_data (user_id,data_id)
+        VALUES
+        <foreach collection="dataIds" item="dataId" separator=",">
+            (#{id},#{dataId})
+        </foreach>
+    </insert>
+
+    <!-- 删除用户角色中间表（auth_user_role_2)，支持批量-->
+    <delete id="deleteUserAndRoles" parameterType="com.ziyun.common.entity.User">
+        DELETE FROM auth_user_role_2 where 1=1
+        <if test="userId !=null and userId !='' ">
+            and user_id =#{userId}
+        </if>
+        <if test="ids !=null and ids.length &gt;0">
+            and user_id IN
+            <foreach close=")" collection="ids" item="id" open="(" separator=",">
+                #{id}
+            </foreach>
+        </if>
+        <if test="roleId != null and roleId !=''">
+            and role_id = #{roleId}
+        </if>
+    </delete>
+
+    <!-- 删除用户数据权限中间表（auth_user_data），支持批量-->
+    <delete id="deleteUserAndDatas" parameterType="com.ziyun.common.entity.User">
+        DELETE FROM auth_user_data
+        WHERE 1=1
+        <if test="id !=null and id !='' ">
+            and user_id= #{id}
+        </if>
+        <if test="ids !=null and ids.length &gt; 0">
+            and user_id IN
+            <foreach close=")" collection="ids" item="id" open="(" separator=",">
+                #{id}
+            </foreach>
+        </if>
+
+    </delete>
+
+
+    <!-- 删除用户数据权限中间表（auth_user_data），支持批量-->
+    <delete id="deleteUsers" parameterType="com.ziyun.common.entity.User">
+        UPDATE auth_user_2 SET is_delete = 1
+        WHERE 1=1
+        <if test=" ids !=null and ids.length > 0">
+            user_id IN
+            <foreach close=")" collection="ids" item="id" open="(" separator=",">
+                #{id}
+            </foreach>
+        </if>
+        <if test="userId != null and userId != ''">
+            and user_id = #{userId}
+        </if>
+
+    </delete>
+
+
+    <!--查询用户列表长度-->
+    <select id="listUserSize" parameterType="com.ziyun.common.entity.User" resultType="java.lang.Integer">
+        SELECT count(1) as "size"
+        FROM auth_user_2 WHERE is_delete = 0 AND is_super_admin != 1
+        <include refid="Base_where_list"/>
+    </select>
+
+    <!--修改用户-->
+    <update id="updateUser" parameterType="com.ziyun.common.entity.User">
+        UPDATE auth_user_2
+        <trim prefix="set " suffixOverrides=",">
+            <if test="nickname !=null and nickname != '' ">
+                nickname=#{nickname},
+            </if>
+            <if test="username !=null and username != '' ">
+                username=#{username},
+            </if>
+            <if test="password !=null and password != '' ">
+                password=#{password},
+            </if>
+            <if test="sex !=null and sex != '' ">
+                sex=#{sex},
+            </if>
+            <if test="salt !=null and salt != '' ">
+                salt=#{salt},
+            </if>
+            <if test="remark !=null and remark != '' ">
+                remark=#{remark},
+            </if>
+            <!-- email 字段 可以为'' -->
+            email=#{email},
+            <if test="mobile !=null and mobile != '' ">
+                mobile=#{mobile},
+            </if>
+            <if test="status !=null  ">
+                status=#{status},
+            </if>
+            <if test="lastLoginTime !=null and lastLoginTime != '' ">
+                last_login_time=#{lastLoginTime},
+            </if>
+            <if test="createTime !=null and createTime != '' ">
+                create_time=#{createTime},
+            </if>
+            <if test="updateTime !=null and updateTime != '' ">
+                update_time=#{updateTime},
+            </if>
+        </trim>
+        WHERE user_id = #{userId}
+
+
+    </update>
+
+    <!--查询角色下的用户列表-->
+    <select id="listUsersByRole" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT
+        *
+        FROM
+        auth_user_2
+        WHERE
+        user_id IN (
+        SELECT
+        user_id
+        FROM
+        auth_user_role_2
+        WHERE
+        role_id = #{id}
+        <if test="likes !=null and likes != '' ">
+            AND ( nickname LIKE CONCAT("%",#{likes},"%") OR username LIKE CONCAT("%",#{likes},"%") OR email LIKE
+            CONCAT("%",#{likes},"%")
+            OR email LIKE CONCAT("%",#{likes},"%") )
+        </if>
+        ) ORDER BY user_id
+        <!--  LIMIT   ${(pageNum-1)*pageSize},${pageSize};-->
+    </select>
+
+    <select id="listUserCount" parameterType="com.ziyun.common.entity.Role" resultType="java.lang.Integer">
+        select count(1) from (
+        SELECT
+        *
+        FROM
+        auth_user_2
+        WHERE
+        user_id IN (
+        SELECT
+        user_id
+        FROM
+        auth_user_role_2
+        WHERE
+        role_id = #{id}
+        <if test="likes !=null and likes != '' ">
+            AND ( nickname LIKE CONCAT("%",#{likes},"%") OR username LIKE CONCAT("%",#{likes},"%") OR email LIKE
+            CONCAT("%",#{likes},"%")
+            OR email LIKE CONCAT("%",#{likes},"%") )
+        </if>
+        ) ) a
+    </select>
+
+    <!--查询当前角色账号不存在的用户列表-->
+    <select id="listUserNotExistRoleid" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT
+        *
+        FROM
+        auth_user_2
+        WHERE
+        user_id NOT IN (
+        SELECT
+        user_id
+        FROM
+        auth_user_role_2
+        WHERE
+        role_id = #{id}
+
+        )
+        <if test="likes !=null and likes != '' ">
+            AND username LIKE CONCAT("%",#{likes},"%")
+        </if>
+        ORDER BY user_id
+    </select>
+
+    <!-- 查询当前角色账号不存在的用户列表总长度-->
+    <select id="listUserNotExistRoleidCount" parameterType="com.ziyun.common.entity.Role"
+            resultType="java.lang.Integer">
+        select count(1) from (
+        SELECT
+        *
+        FROM
+        auth_user_2
+        WHERE
+        user_id NOT IN (
+        SELECT
+        user_id
+        FROM
+        auth_user_role_2
+        WHERE
+        role_id = #{id}
+
+        )
+        <if test="likes !=null and likes != '' ">
+            AND username LIKE CONCAT("%",#{likes},"%")
+        </if>
+        ) a
+    </select>
+
+
+    <!--根据organCode去sys_org_tree-->
+    <select id="selectOrganname" parameterType="java.lang.String" resultType="java.lang.String">
+              select org_name as organName from sys_org_tree WHERE org_code=#{organCode}
+    </select>
+
+    <!--支持 昵称，用户名，手机号  模糊查询-->
+    <select id="listUsers" parameterType="com.ziyun.common.entity.User" resultMap="BaseResultMap">
+        SELECT *
+        FROM auth_user_2 WHERE is_delete = 0 AND is_super_admin != 1
+        <include refid="Base_where_list"/>
+        ORDER BY create_time DESC
+        <include refid="base_limit"/>
+    </select>
+
+
+    <!--添加用户-->
+    <insert id="saveUser" parameterType="com.ziyun.common.entity.User" useGeneratedKeys="true" keyProperty="userId">
+        INSERT INTO auth_user_2(nickname,username,password,email,mobile,create_user_id,create_role_id,status)
+        VALUE (#{nickname},#{username},#{password},#{email},#{mobile},#{createUserId},#{createRoleId},#{status})
+    </insert>
+
+    <select id="findUserByUsername" resultMap="BaseResultMap">
+        SELECT * FROM auth_user_2 WHERE binary username = #{username} and is_delete = 0
+    </select>
+
+    <!-- 根据角色集合查询所有相关用户 -->
+    <select id="selectUserByRoleIds" parameterType="java.lang.Long" resultType="java.util.Map">
+        select t1.username as username,t2.role_id as roleId from auth_user_2 t1
+        INNER JOIN auth_user_role_2 t2 on t1.user_id = t2.user_id
+        WHERE t1.is_delete = 0 and t1.status = 1
+        <if test="roleIds != null">
+            and t2.role_id IN
+            <foreach collection="roleIds" item="roleId" open="(" close=")" separator=",">
+                #{roleId}
+            </foreach>
+        </if>
+    </select>
+
+    <!-- 根据用户ID数组查询所有用户名 -->
+    <select id="selectUserByIds" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select t1.username,t1.user_id
+        from auth_user_2 t1
+        WHERE t1.is_delete = 0
+        <if test="ids != null">
+            and t1.user_id IN
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="selectByParam" parameterType="com.ziyun.common.entity.User" resultMap="BaseResultMap">
+        SELECT username,user_id from auth_user_2 WHERE is_delete =0
+        <if test="username != null and username != ''">
+            and BINARY username = #{username}
+        </if>
+        <if test="createUserId != null and createUserId != ''">
+            and create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null and createRoleId != ''">
+            and create_role_id = #{createRoleId}
+        </if>
+    </select>
+
+    <!-- 修改用户状态 启用 或禁用-->
+    <update id="updateUserStatus" parameterType="com.ziyun.common.entity.User">
+        UPDATE auth_user_2 SET status = #{status} where user_id = #{userId}
+    </update>
+
+    <!--根据查询参数 查询用户列表-->
+    <select id="selectUserByParam" parameterType="com.ziyun.common.entity.User" resultMap="BaseResultMap">
+        SELECT * from auth_user_2 WHERE is_delete =0
+        <if test="username != null and username != ''">
+            AND BINARY username = #{username}
+        </if>
+        <if test=" ids != null and ids.length > 0">
+            and user_id in
+            <foreach collection="ids" open="(" close=")" item="id" separator=",">
+                #{id}
+            </foreach>
+        </if>
+        <if test="createUserId != null ">
+            and create_user_id = #{createUserId}
+        </if>
+        <if test="createRoleId != null">
+            and create_role_id = #{createRoleId}
+        </if>
+    </select>
+
+    <!-- 根据创建角色id删除用户-->
+    <delete id="deleteUserByCreateRoleId" parameterType="java.lang.Long">
+        UPDATE auth_user_2 SET is_delete = 1
+        WHERE create_role_id = #{createRoleId}
+    </delete>
+
+    <!-- 删除用户角色中间表（auth_user_role_2)，支持批量-->
+    <delete id="deleteUserRoleByParam" parameterType="java.util.Map">
+        DELETE FROM auth_user_role_2
+        where 1=1
+        <!-- 用户ID -->
+        <if test="userId != null">
+            and user_id =#{userId}
+        </if>
+        <!-- 用户ID集合 -->
+        <if test="ids != null and ids.length &gt;0">
+            and user_id IN
+            <foreach close=")" collection="ids" item="id" open="(" separator=",">
+                #{id}
+            </foreach>
+        </if>
+        <!-- 角色ID -->
+        <if test="roleId != null">
+            and role_id =#{roleId}
+        </if>
+        <!-- 角色ID集合 -->
+        <if test="roleIds != null and roleIds.length &gt;0">
+            and role_id IN
+            <foreach close=")" collection="roleIds" item="roleId" open="(" separator=",">
+                #{roleIds}
+            </foreach>
+        </if>
+    </delete>
+</mapper>

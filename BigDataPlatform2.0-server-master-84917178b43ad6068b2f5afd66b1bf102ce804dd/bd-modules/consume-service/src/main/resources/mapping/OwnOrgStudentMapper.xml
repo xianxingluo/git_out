@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.consume.dao.OwnOrgStudentDao">
+    <resultMap id="BaseResultMap" type="com.ziyun.consume.entity.OwnOrgStudent">
+        <id column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!-- 返回own_org_student_type表的结果集 -->
+    <resultMap id="BaseResultDetailMap" type="com.ziyun.consume.entity.OwnOrgStudentType">
+        <id column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="school_name" property="schoolName" jdbcType="VARCHAR"/>
+        <result column="faculty_name" property="facultyName" jdbcType="VARCHAR"/>
+        <result column="major_name" property="majorName" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="impoverish" property="impoverish" jdbcType="INTEGER"/>
+        <result column="scholarship" property="scholarship" jdbcType="INTEGER"/>
+        <result column="political_code_all" property="politicalCodeAll" jdbcType="INTEGER"/>
+        <result column="political_code_thisterm" property="politicalCodeThisterm" jdbcType="INTEGER"/>
+        <result column="political_code_lastterm" property="politicalCodeLastterm" jdbcType="INTEGER"/>
+        <result column="political_code_lastyear" property="politicalCodeLastyear" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!--  根据学号：查询某个学生的：人员相关信息 -->
+    <select id="selectDetail" resultMap="BaseResultDetailMap" parameterType="java.lang.String">
+        select
+        *
+        from own_org_student_type
+        where outid = #{outid,jdbcType=VARCHAR}
+    </select>
+
+    <!--  获取全部学生的：人员相关信息 -->
+    <select id="selectAllDetail" resultMap="BaseResultDetailMap" parameterType="com.ziyun.consume.vo.Params">
+        select
+        *
+        from own_org_student_type
+    </select>
+
+    <!--  获取全部学生人数 -->
+    <select id="getCount" resultType="int" parameterType="com.ziyun.consume.vo.Params">
+        select
+        count(*) as NUM
+        from own_org_student_type b
+        WHERE 1=1
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+
+        <!-- 学号outid-->
+        <if test="outid != null">
+            and b.outid LIKE CONCAT("%",#{outid},"%")
+        </if>
+        <!--  根据学生名称 模糊查询-->
+        <if test="name !=null and name !='' ">
+            AND b.NAME LIKE CONCAT("%",#{name},"%")
+        </if>
+        <!-- 特定人群 -->
+        <!-- 优等生 -->
+        <if test="scholarship == 1">
+            and b.scholarship = 1
+        </if>
+        <!-- 貧困生 -->
+        <if test="impoverish == 1">
+            and b.impoverish = 1
+        </if>
+
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <!--<if test="politicalCode != null">
+            <if test="timeframe == null">
+                and b.political_code_all=#{politicalCode}
+            </if>
+            <if test="timeframe == 1">
+                and b.political_code_thisterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 2">
+                and b.political_code_lastterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 3">
+                and b.political_code_lastyear=#{politicalCode}
+            </if>
+        </if> -->
+        <!-- 政治面貌-->
+        <if test="politicalCode != null">
+            and b.political_code_all=#{politicalCode}
+        </if>
+
+
+        <!--入学年份-->
+        <if test="enrollmentYear !=null and enrollmentYear !='' ">
+            AND FIND_IN_SET(#{enrollmentYear},b.enrollment_year)
+        </if>
+        <!--学籍状态-->
+        <if test="eduStatus !=null and eduStatus != '' ">
+            AND b.edu_status like CONCAT("%",#{eduStatus},"%")
+        </if>
+        <!-- 性别-->
+        <if test="sex !=null and sex !='' ">
+            AND b.sex =#{sex}
+        </if>
+        <!-- 学历-->
+        <if test="education !=null and education != '' ">
+            AND b.training_level = #{education}
+        </if>
+    </select>
+
+
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and t.outid = #{outid,jdbcType=VARCHAR}</if>
+        <if test="sex != null">and t.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and t.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and t.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <!--<if test="bdate != null and bdate != '' ">
+            and b.opdt <![CDATA[ >= ]]> '${bdate}'
+        </if>-->
+        <!-- 结束时间 -->
+        <!--<if test="edate != null and edate != '' ">
+            and b.opdt <![CDATA[ < ]]> '${edate}'
+        </if>-->
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and t.SCHOLARSHIP=1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.IMPOVERISH=1
+        </if>
+
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="timeframe == null">
+                and t.political_code_all = ${politicalCode}
+            </if>
+            <if test='timeframe == "1"'>
+                and t.political_code_thisterm = ${politicalCode}
+            </if>
+            <if test='timeframe == "2"'>
+                and t.political_code_lastterm = ${politicalCode}
+            </if>
+            <if test='timeframe == "3"'>
+                and t.political_code_lastyear = ${politicalCode}
+            </if>
+        </if>
+
+    </sql>
+
+    <sql id="Base_Column_List">
+        outid, school_code, faculty_code, major_code, class_code
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.String">
+        select
+        <include refid="Base_Column_List"/>
+        from own_org_student
+        where outid = #{outid,jdbcType=VARCHAR}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
+        delete from own_org_student
+        where outid = #{outid,jdbcType=VARCHAR}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.consume.entity.OwnOrgStudent">
+        insert into own_org_student (outid, school_code, faculty_code,
+        major_code, class_code)
+        values (#{outid,jdbcType=VARCHAR}, #{schoolCode,jdbcType=VARCHAR}, #{facultyCode,jdbcType=VARCHAR},
+        #{majorCode,jdbcType=VARCHAR}, #{classCode,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.consume.entity.OwnOrgStudent">
+        insert into own_org_student
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="outid != null">
+                outid,
+            </if>
+            <if test="schoolCode != null">
+                school_code,
+            </if>
+            <if test="facultyCode != null">
+                faculty_code,
+            </if>
+            <if test="majorCode != null">
+                major_code,
+            </if>
+            <if test="classCode != null">
+                class_code,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="outid != null">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="schoolCode != null">
+                #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                #{classCode,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.consume.entity.OwnOrgStudent">
+        update own_org_student
+        <set>
+            <if test="schoolCode != null">
+                school_code = #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                faculty_code = #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                major_code = #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                class_code = #{classCode,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where outid = #{outid,jdbcType=VARCHAR}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.consume.entity.OwnOrgStudent">
+        update own_org_student
+        set school_code = #{schoolCode,jdbcType=VARCHAR},
+        faculty_code = #{facultyCode,jdbcType=VARCHAR},
+        major_code = #{majorCode,jdbcType=VARCHAR},
+        class_code = #{classCode,jdbcType=VARCHAR}
+        where outid = #{outid,jdbcType=VARCHAR}
+    </update>
+</mapper>

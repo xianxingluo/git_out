@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.basic.mapper.EduStatusMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.basic.entity.EduStatus">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="faculty" property="faculty" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="major_name" property="majorName" jdbcType="VARCHAR"/>
+        <result column="majorField_name" property="majorfieldName"
+                jdbcType="VARCHAR"/>
+        <result column="class" property="classCode" jdbcType="VARCHAR"/>
+        <result column="schooling_length" property="schoolingLength"
+                jdbcType="VARCHAR"/>
+        <result column="level" property="level" jdbcType="VARCHAR"/>
+        <result column="campus" property="campus" jdbcType="VARCHAR"/>
+        <result column="birthdate" property="birthdate" jdbcType="VARCHAR"/>
+        <result column="idcard_no" property="idcardNo" jdbcType="VARCHAR"/>
+        <result column="enrollment_year" property="enrollmentYear"
+                jdbcType="VARCHAR"/>
+        <result column="student_state" property="studentState"
+                jdbcType="VARCHAR"/>
+        <result column="admission_date" property="admissionDate"
+                jdbcType="VARCHAR"/>
+        <result column="training_level" property="trainingLevel"
+                jdbcType="VARCHAR"/>
+        <result column="research_area" property="researchArea"
+                jdbcType="VARCHAR"/>
+        <result column="nation" property="nation" jdbcType="VARCHAR"/>
+        <result column="native_place" property="nativePlace" jdbcType="VARCHAR"/>
+        <result column="political_status" property="politicalStatus"
+                jdbcType="VARCHAR"/>
+        <result column="source_location" property="sourceLocation"
+                jdbcType="VARCHAR"/>
+        <result column="remarks" property="remarks" jdbcType="VARCHAR"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+        id, outid, name, sex, faculty, major_code, major_name, majorField_name,
+        class, schooling_length,
+        level, campus, birthdate, idcard_no, enrollment_year, student_state,
+        admission_date,
+        training_level, research_area, nation, native_place, political_status,
+        source_location,
+        remarks, school_code
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="java.lang.Integer">
+        select
+        <include refid="Base_Column_List"/>
+        from edu_status
+        where id = #{id,jdbcType=INTEGER}
+    </select>
+
+    <!-- 根据学号查询：学生学籍信息 -->
+    <select id="selectByOutid" resultMap="BaseResultMap"
+            parameterType="java.lang.String">
+        select
+        <include refid="Base_Column_List"/>
+        from edu_status
+        where outid = #{outid,jdbcType=VARCHAR}
+    </select>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer">
+        delete from edu_status
+        where id = #{id,jdbcType=INTEGER}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.basic.entity.EduStatus">
+        insert into edu_status (id, outid, name,
+        sex, faculty, major_code,
+        major_name, majorField_name, class,
+        schooling_length, level, campus,
+        birthdate, idcard_no, enrollment_year,
+        student_state, admission_date, training_level,
+        research_area, nation, native_place,
+        political_status, source_location, remarks,
+        school_code)
+        values (#{id,jdbcType=INTEGER}, #{outid,jdbcType=VARCHAR},
+        #{name,jdbcType=VARCHAR},
+        #{sex,jdbcType=VARCHAR}, #{faculty,jdbcType=VARCHAR}, #{majorCode,jdbcType=VARCHAR},
+        #{majorName,jdbcType=VARCHAR}, #{majorfieldName,jdbcType=VARCHAR},
+        #{classCode,jdbcType=VARCHAR},
+        #{schoolingLength,jdbcType=VARCHAR}, #{level,jdbcType=VARCHAR}, #{campus,jdbcType=VARCHAR},
+        #{birthdate,jdbcType=VARCHAR}, #{idcardNo,jdbcType=VARCHAR},
+        #{enrollmentYear,jdbcType=VARCHAR},
+        #{studentState,jdbcType=VARCHAR}, #{admissionDate,jdbcType=VARCHAR}, #{trainingLevel,jdbcType=VARCHAR},
+        #{researchArea,jdbcType=VARCHAR}, #{nation,jdbcType=VARCHAR},
+        #{nativePlace,jdbcType=VARCHAR},
+        #{politicalStatus,jdbcType=VARCHAR}, #{sourceLocation,jdbcType=VARCHAR}, #{remarks,jdbcType=VARCHAR},
+        #{schoolCode,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.basic.entity.EduStatus">
+        insert into edu_status
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="outid != null">
+                outid,
+            </if>
+            <if test="name != null">
+                name,
+            </if>
+            <if test="sex != null">
+                sex,
+            </if>
+            <if test="faculty != null">
+                faculty,
+            </if>
+            <if test="majorCode != null">
+                major_code,
+            </if>
+            <if test="majorName != null">
+                major_name,
+            </if>
+            <if test="majorfieldName != null">
+                majorField_name,
+            </if>
+            <if test="classCode != null">
+                class,
+            </if>
+            <if test="schoolingLength != null">
+                schooling_length,
+            </if>
+            <if test="level != null">
+                level,
+            </if>
+            <if test="campus != null">
+                campus,
+            </if>
+            <if test="birthdate != null">
+                birthdate,
+            </if>
+            <if test="idcardNo != null">
+                idcard_no,
+            </if>
+            <if test="enrollmentYear != null">
+                enrollment_year,
+            </if>
+            <if test="studentState != null">
+                student_state,
+            </if>
+            <if test="admissionDate != null">
+                admission_date,
+            </if>
+            <if test="trainingLevel != null">
+                training_level,
+            </if>
+            <if test="researchArea != null">
+                research_area,
+            </if>
+            <if test="nation != null">
+                nation,
+            </if>
+            <if test="nativePlace != null">
+                native_place,
+            </if>
+            <if test="politicalStatus != null">
+                political_status,
+            </if>
+            <if test="sourceLocation != null">
+                source_location,
+            </if>
+            <if test="remarks != null">
+                remarks,
+            </if>
+            <if test="schoolCode != null">
+                school_code,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="outid != null">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="name != null">
+                #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                #{sex,jdbcType=VARCHAR},
+            </if>
+            <if test="faculty != null">
+                #{faculty,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorName != null">
+                #{majorName,jdbcType=VARCHAR},
+            </if>
+            <if test="majorfieldName != null">
+                #{majorfieldName,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="schoolingLength != null">
+                #{schoolingLength,jdbcType=VARCHAR},
+            </if>
+            <if test="level != null">
+                #{level,jdbcType=VARCHAR},
+            </if>
+            <if test="campus != null">
+                #{campus,jdbcType=VARCHAR},
+            </if>
+            <if test="birthdate != null">
+                #{birthdate,jdbcType=VARCHAR},
+            </if>
+            <if test="idcardNo != null">
+                #{idcardNo,jdbcType=VARCHAR},
+            </if>
+            <if test="enrollmentYear != null">
+                #{enrollmentYear,jdbcType=VARCHAR},
+            </if>
+            <if test="studentState != null">
+                #{studentState,jdbcType=VARCHAR},
+            </if>
+            <if test="admissionDate != null">
+                #{admissionDate,jdbcType=VARCHAR},
+            </if>
+            <if test="trainingLevel != null">
+                #{trainingLevel,jdbcType=VARCHAR},
+            </if>
+            <if test="researchArea != null">
+                #{researchArea,jdbcType=VARCHAR},
+            </if>
+            <if test="nation != null">
+                #{nation,jdbcType=VARCHAR},
+            </if>
+            <if test="nativePlace != null">
+                #{nativePlace,jdbcType=VARCHAR},
+            </if>
+            <if test="politicalStatus != null">
+                #{politicalStatus,jdbcType=VARCHAR},
+            </if>
+            <if test="sourceLocation != null">
+                #{sourceLocation,jdbcType=VARCHAR},
+            </if>
+            <if test="remarks != null">
+                #{remarks,jdbcType=VARCHAR},
+            </if>
+            <if test="schoolCode != null">
+                #{schoolCode,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.basic.entity.EduStatus">
+        update edu_status
+        <set>
+            <if test="outid != null">
+                outid = #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="name != null">
+                name = #{name,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                sex = #{sex,jdbcType=VARCHAR},
+            </if>
+            <if test="faculty != null">
+                faculty = #{faculty,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                major_code = #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorName != null">
+                major_name = #{majorName,jdbcType=VARCHAR},
+            </if>
+            <if test="majorfieldName != null">
+                majorField_name = #{majorfieldName,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                class = #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="schoolingLength != null">
+                schooling_length = #{schoolingLength,jdbcType=VARCHAR},
+            </if>
+            <if test="level != null">
+                level = #{level,jdbcType=VARCHAR},
+            </if>
+            <if test="campus != null">
+                campus = #{campus,jdbcType=VARCHAR},
+            </if>
+            <if test="birthdate != null">
+                birthdate = #{birthdate,jdbcType=VARCHAR},
+            </if>
+            <if test="idcardNo != null">
+                idcard_no = #{idcardNo,jdbcType=VARCHAR},
+            </if>
+            <if test="enrollmentYear != null">
+                enrollment_year = #{enrollmentYear,jdbcType=VARCHAR},
+            </if>
+            <if test="studentState != null">
+                student_state = #{studentState,jdbcType=VARCHAR},
+            </if>
+            <if test="admissionDate != null">
+                admission_date = #{admissionDate,jdbcType=VARCHAR},
+            </if>
+            <if test="trainingLevel != null">
+                training_level = #{trainingLevel,jdbcType=VARCHAR},
+            </if>
+            <if test="researchArea != null">
+                research_area = #{researchArea,jdbcType=VARCHAR},
+            </if>
+            <if test="nation != null">
+                nation = #{nation,jdbcType=VARCHAR},
+            </if>
+            <if test="nativePlace != null">
+                native_place = #{nativePlace,jdbcType=VARCHAR},
+            </if>
+            <if test="politicalStatus != null">
+                political_status = #{politicalStatus,jdbcType=VARCHAR},
+            </if>
+            <if test="sourceLocation != null">
+                source_location = #{sourceLocation,jdbcType=VARCHAR},
+            </if>
+            <if test="remarks != null">
+                remarks = #{remarks,jdbcType=VARCHAR},
+            </if>
+            <if test="schoolCode != null">
+                school_code = #{schoolCode,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.basic.entity.EduStatus">
+        update edu_status
+        set outid = #{outid,jdbcType=VARCHAR},
+        name = #{name,jdbcType=VARCHAR},
+        sex = #{sex,jdbcType=VARCHAR},
+        faculty = #{faculty,jdbcType=VARCHAR},
+        major_code = #{majorCode,jdbcType=VARCHAR},
+        major_name = #{majorName,jdbcType=VARCHAR},
+        majorField_name = #{majorfieldName,jdbcType=VARCHAR},
+        class = #{classCode,jdbcType=VARCHAR},
+        schooling_length = #{schoolingLength,jdbcType=VARCHAR},
+        level = #{level,jdbcType=VARCHAR},
+        campus = #{campus,jdbcType=VARCHAR},
+        birthdate = #{birthdate,jdbcType=VARCHAR},
+        idcard_no = #{idcardNo,jdbcType=VARCHAR},
+        enrollment_year = #{enrollmentYear,jdbcType=VARCHAR},
+        student_state = #{studentState,jdbcType=VARCHAR},
+        admission_date = #{admissionDate,jdbcType=VARCHAR},
+        training_level = #{trainingLevel,jdbcType=VARCHAR},
+        research_area = #{researchArea,jdbcType=VARCHAR},
+        nation = #{nation,jdbcType=VARCHAR},
+        native_place = #{nativePlace,jdbcType=VARCHAR},
+        political_status = #{politicalStatus,jdbcType=VARCHAR},
+        source_location = #{sourceLocation,jdbcType=VARCHAR},
+        remarks = #{remarks,jdbcType=VARCHAR},
+        school_code = #{schoolCode,jdbcType=VARCHAR}
+        where id = #{id,jdbcType=INTEGER}
+    </update>
+
+</mapper>

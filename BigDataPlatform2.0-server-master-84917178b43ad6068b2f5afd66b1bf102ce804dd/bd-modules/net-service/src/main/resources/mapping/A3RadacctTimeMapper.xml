@@ -1,0 +1,956 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.net.mapper.A3RadacctTimeMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.net.entity.A3RadacctTime">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="acctstarttime" property="acctstarttime"
+                jdbcType="TIMESTAMP"/>
+        <result column="acctstoptime" property="acctstoptime" jdbcType="TIMESTAMP"/>
+        <result column="acctsessiontime" property="acctsessiontime"
+                jdbcType="INTEGER"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+    <!-- +++++++++++业务查询 +++++++++++ -->
+
+    <resultMap id="ResultDataMap" type="com.ziyun.net.vo.ResultData">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+        <result column="datetime" property="datetime" jdbcType="TIMESTAMP"/>
+        <result column="datetimeStr" property="datetimeStr" jdbcType="VARCHAR"/>
+        <result column="weekindex" property="weekindex" jdbcType="INTEGER"/>
+        <result column="week" property="week" jdbcType="VARCHAR"/>
+        <result column="hour" property="hour" jdbcType="VARCHAR"/>
+        <result column="num" property="num" jdbcType="BIGINT"/>
+        <result column="sum" property="sum" jdbcType="DECIMAL"/>
+    </resultMap>
+
+
+    <!--成绩提高分析 begin -->
+    <!--成绩提高分析 3、上网 -->
+    <select id="getNetwork4Analysis" resultType="Map"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        b2.num,
+        rc.avg_credit_point
+        FROM
+        (SELECT
+        b.outid,
+        round(sum(b.acctsessiontime) / 60 / 60, 2) AS num
+        FROM radacct_time b
+        WHERE 1 = 1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid) AS b2,
+        (SELECT
+        rc.outid,
+        round(sum(rc.total_credit_point)/sum(rc.total_credit),2) AS avg_credit_point
+        FROM
+        own_org_student t
+        INNER JOIN
+        <include refid="Base_where_List_semester"/>
+        ON
+        t.OUTID=rc.outid
+        WHERE 1=1
+        <include refid="Base_where_List_rc"/>
+        GROUP BY t.outid
+        HAVING sum(rc.total_credit)>0) rc
+        WHERE b2.outid = rc.outid
+        ;
+    </select>
+
+    <sql id="Base_where_List_semester">
+        <choose>
+            <when test="semester != null and semester!=''">
+                r_credit_semester rc
+            </when>
+            <otherwise>
+                r_credit_distinct rc
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!--成绩提高分析 end -->
+
+    <!-- 3、上网日平均时长top10 ：：num 上网的天数 -->
+    <select id="avgTopList" resultType="Map"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT b.outid, round(sum(b.acctsessiontime) / 60 / 60,
+        2) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid
+        ORDER BY sum DESC
+        LIMIT 10
+    </select>
+
+    <!-- 5.0、上网总时长分析（日人均总时长和上网人数统计）：：最早时间、最晚时间 -->
+    <select id="timeChangeListTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT min(b.acctstarttime) as 'bdate',max(b.acctstoptime) as 'edate'
+        FROM radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+    </select>
+
+    <select id="timeChangeList4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        b.class_code,
+        DATE_FORMAT(b.acctstarttime, '%Y-%m-%d') as datetimeStr,
+        round(sum(b.acctsessiontime) / 60 / 60, 2) AS sum,
+        count(DISTINCT(b.outid)) as num
+        FROM radacct_time b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code, datetimeStr
+        order by b.school_code,b.faculty_code,b.major_code,b.class_code,datetimeStr
+    </select>
+
+    <!-- 5、上网总时长分析 ::个人页面：个人每日上网时间、班级平均每日上网时间 -->
+    <select id="timeChangeListOne" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT DATE_FORMAT(b.acctstarttime, '%Y-%m-%d') as datetimeStr,
+        round(sum(b.acctsessiontime) / 60 / 60, 2) AS sum ,
+        count(DISTINCT(b.outid)) as num
+        FROM radacct_time b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY datetimeStr
+    </select>
+
+    <!-- 5、上网总时长分析 ::个人页面：个人每日上网时间、班级平均每日上网时间 -->
+    <!-- <select id="timeChangeListClass" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        SELECT DATE_FORMAT(b.acctstarttime, '%Y-%m-%d') as datetimeStr, round(sum(b.acctsessiontime)
+        / 60 / 60, 2) AS sum, count(DISTINCT(b.outid)) as num FROM radacct_time b
+        WHERE 1=1 <include refid="Base_where_List" /> GROUP BY datetimeStr </select> -->
+
+
+    <!-- 16、 新版上网时段分布：｛周末、周一到周五2个24小时图｝ -按照小时汇总- 通过对Java对日期的格式进行再次处理 -->
+    <!-- ｛用于个人查询｝先按照天、小时、每个人统计在线人数;再按照小时统计总人数 -->
+    <select id="hourListOne" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        t.hour,sum(t.sum) as sum
+        FROM
+        (
+
+        SELECT 23 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 23
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 23
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+        <!-- 从周一到周末的：0点的统计 -->
+        UNION ALL
+        SELECT 0 AS
+        'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 0
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 0
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT 1 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 1
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 1
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        2 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 2
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 2
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        3 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 3
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 3
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        4 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 4
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 4
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        5 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 5
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 5
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        6 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 6
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 6
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        7 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 7
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 7
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        8 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 8
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 8
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        9 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 9
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 9
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        10 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 10
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 10
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        11 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 11
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 11
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        12 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 12
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 12
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        13 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 13
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 13
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        14 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 14
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 14
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        15 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 15
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 15
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        16 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 16
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 16
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        17 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 17
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 17
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        18 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 18
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 18
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        19 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 19
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 19
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        20 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 20
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 20
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        21 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 21
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 21
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        UNION ALL
+        SELECT
+        22 AS 'hour',
+        COUNT(DISTINCT(b.outid)) AS sum
+        FROM
+        radacct_time b
+        WHERE 1=1
+        <include refid="weekend_Base_where_List"/>
+        and
+        HOUR(b.acctstarttime)  <![CDATA[ <= ]]> 22
+        and
+        HOUR(b.acctstoptime) <![CDATA[ >= ]]> 22
+        GROUP BY DATE_FORMAT(b.acctstarttime, '%Y-%m-%d')
+
+        )t
+        group by t.hour
+        order by sum desc
+    </select>
+
+    <select id="hourList4Excel" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        b.class_code,
+        b.hour,sum(b.sum) as sum
+        FROM radacct_time_period b
+        WHERE 1=1
+        <include refid="notype_Base_where_List"/>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        <!-- 只查询周一到周五的数据：用于：：16、 新版上网时段分布：｛周末、周一到周五2个24小时图｝ -->
+        <if test="weekend != null and weekend == 'notweekend' ">
+            and DATE_FORMAT(b.acctstarttime,'%w') not in('0','6')
+        </if>
+        <!-- 只查询周六、周日的数据：用于：：16、 新版上网时段分布：｛周末、周一到周五2个24小时图｝ -->
+        <if test="weekend != null and weekend == 'weekend' ">
+            and DATE_FORMAT(b.acctstarttime,'%w') in('0','6')
+        </if>
+        group by b.class_code ,b.hour
+        order by b.school_code,b.faculty_code,b.major_code,b.class_code, sum desc
+    </select>
+
+    <!--个人查询还有这个： 6、 上网时段分布 -按照周几、小时汇总- 通过对Java对日期的格式进行再次处理 -->
+    <select id="weekHourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+    </select>
+
+    <!-- 动态查询条件 -->
+    <sql id="Base_where_List">
+
+        <!-- <if test="id != null"> and b.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and b.outid = #{outid,jdbcType=VARCHAR}, </if> -->
+        <if test="sex != null">and b.sex = #{sex,jdbcType=VARCHAR}</if>
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null"> and b.class_code = #{classCode,jdbcType=VARCHAR}
+            </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.acctstarttime <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.acctstoptime <![CDATA[ <= ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and b.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and b.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+    </sql>
+
+
+    <!-- 动态查询条件:包含是否只查询工作日、周末的数据 -->
+    <sql id="weekend_Base_where_List">
+        <!-- <if test="id != null"> and b.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and b.outid = #{outid,jdbcType=VARCHAR}, </if> -->
+        <if test="sex != null">and b.sex = #{sex,jdbcType=VARCHAR}</if>
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null"> and b.class_code = #{classCode,jdbcType=VARCHAR}
+            </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.acctstarttime <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.acctstoptime <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and b.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and b.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <!-- 只查询周一到周五的数据：用于：：16、 新版上网时段分布：｛周末、周一到周五2个24小时图｝ -->
+        <if test="weekend != null and weekend == 'notweekend' ">
+            and DATE_FORMAT(b.acctstarttime,'%w') not in('0','6')
+        </if>
+        <!-- 只查询周六、周日的数据：用于：：16、 新版上网时段分布：｛周末、周一到周五2个24小时图｝ -->
+        <if test="weekend != null and weekend == 'weekend' ">
+            and DATE_FORMAT(b.acctstarttime,'%w') in('0','6')
+        </if>
+    </sql>
+
+    <!-- 按照班级汇总的查询｛贫困生、优等生已经在表中汇总｝：动态查询条件：： 不含贫困生、优等生查询 -->
+    <sql id="notype_Base_where_List">
+
+        <!-- <if test="id != null"> and b.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and b.outid = #{outid,jdbcType=VARCHAR}, </if> -->
+        <if test="sex != null">and b.sex = #{sex,jdbcType=VARCHAR}</if>
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null"> and b.class_code = #{classCode,jdbcType=VARCHAR}
+            </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.acctstarttime <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.acctstoptime <![CDATA[ < ]]>
+            #{edate}
+        </if>
+
+    </sql>
+
+
+    <sql id="Base_where_List_rc">
+        <!-- 根据学期查询 -->
+        <if test="semester != null">
+            and rc.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+    </sql>
+    <!-- 根据查询条件：动态查询 -->
+    <!-- <select id="" resultMap="BaseResultMap" parameterType="com.ziyun.net.entity.EcardRecConsumeCopy">
+        select <include refid="Base_Column_List" /> from radacct_time where 1=1 <include
+        refid="select_where_List" /> </select> -->
+    <!-- 动态查询条件 -->
+
+    <!-- <sql id="select_where_List"> <if test="outid != null"> and outid =
+        #{outid,jdbcType=VARCHAR} </if> 开始时间 <if test="bdate != null and bdate !=
+        '' "> and b.opdt <![CDATA[ >= ]]> #{bdate} </if> </sql> -->
+
+
+    <!-- ++++++ 定时任务++++++ -->
+
+    <!-- 获得数据库5分钟前的时间：用于定时任务 -->
+    <select id="fiveMinAgo" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT SUBDATE(now(),interval 5 minute) as 'datetime'
+    </select>
+
+    <!-- 获取到和新log记录，时间重合的radacct_time记录：该记录需要合并 -->
+    <select id="getTimeSame" resultMap="BaseResultMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        r.id,r.outid,r.acctstarttime,r.acctstoptime
+        FROM radacct_time r
+        WHERE
+        (
+        <!-- 和新纪录有交集的 -->
+        (r.acctstarttime <![CDATA[ >= ]]>
+        #{bdate} AND r.acctstarttime <![CDATA[ < ]]>
+        #{edate})
+        OR (r.acctstoptime <![CDATA[ > ]]>
+        #{bdate} AND r.acctstoptime <![CDATA[ <= ]]>
+        #{edate})
+        OR
+        <!-- 完全包含新纪录的：也要拉出去合并。否则就有被包含的再次插入 -->
+        (r.acctstarttime <![CDATA[ < ]]>
+        #{bdate} AND r.acctstoptime <![CDATA[ > ]]>
+        #{edate})
+        )
+        AND r.outid= #{outid,jdbcType=VARCHAR}
+    </select>
+
+    <!-- 定时任务：计算上网时间，去重复radacctlog_all存入到：radacct_time -->
+    <!-- 由于radacctlog_all的子表id不是自增长，有重复的，所以这里通过时间判断 -->
+    <!-- 为防止时间导致丢数据，每次查询5分钟前的数据 -->
+
+    <!-- 查询radacctlog_all上网时间表：指定时间内的数据 ：按照上网结束时间查询，先上线的，可能到现在还没下线 -->
+    <select id="taskNewData" resultMap="BaseResultMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT
+        v.outid,r.acctstarttime,r.acctstoptime,v.school_code,v.faculty_code,v.major_code,v.class_code,v.sex
+        FROM radacctlog_all r
+        INNER JOIN v_student_net v ON
+        r.username=v.username
+        where 1=1
+        <!-- 第一次执行任务时，上次执行时间是空 -->
+        <if test="bdate != null and bdate != '' ">
+            and r.acctstoptime <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        and r.acctstoptime <![CDATA[ < ]]>#{edate}
+        <!-- 过滤掉网络设备上网时间 -->
+        and r.connectinfo_start  <![CDATA[ <> ]]>
+        ''
+        <include refid="Paging"/>
+    </select>
+
+    <!-- ：按照上网结束时间查询，先上线的，可能到现在还没下线 -->
+    <select id="countTaskNewData" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.Params">
+        SELECT count(*) as 'num'
+        FROM radacctlog_all r
+        INNER JOIN v_student_net
+        v ON r.username=v.username
+        where 1=1
+        <!-- 第一次执行任务时，上次执行时间是空 -->
+        <if test="bdate != null and bdate != '' ">
+            and r.acctstoptime <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        and r.acctstoptime <![CDATA[ < ]]>#{edate}
+        <!-- 过滤掉网络设备上网时间 -->
+        and r.connectinfo_start  <![CDATA[ <> ]]>
+        ''
+    </select>
+
+
+    <!--分页条件 -->
+    <sql id="Paging">
+        <!-- 分页最好统一：bootstrap-table分页和自己的ajax请求的分页采用一样的参数 -->
+        <!-- <if test="pageNumber!=null"> limit #{pageNum} ,#{pageSize} </if> -->
+
+        <!-- bootstrap table 分页 -->
+        <if test="start!=null">limit #{start
+			,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <!-- +++++++++++业务查询+++++++++++ -->
+
+
+    <sql id="Base_Column_List">
+        id, outid, acctstarttime, acctstoptime, acctsessiontime,
+        school_code,
+        faculty_code,
+        major_code, class_code, sex
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from radacct_time
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete from
+        radacct_time
+        where id = #{id,jdbcType=BIGINT}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.net.entity.A3RadacctTime">
+        insert into radacct_time (id,
+        outid, acctstarttime,
+        acctstoptime, acctsessiontime, school_code,
+        faculty_code, major_code, class_code,
+        sex)
+        values
+        (#{id,jdbcType=BIGINT}, #{outid,jdbcType=VARCHAR},
+        #{acctstarttime,jdbcType=TIMESTAMP},
+        #{acctstoptime,jdbcType=TIMESTAMP},
+        #{acctsessiontime,jdbcType=INTEGER}, #{schoolCode,jdbcType=VARCHAR},
+        #{facultyCode,jdbcType=VARCHAR}, #{majorCode,jdbcType=VARCHAR},
+        #{classCode,jdbcType=VARCHAR},
+        #{sex,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.net.entity.A3RadacctTime">
+        insert into radacct_time
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="outid != null">
+                outid,
+            </if>
+            <if test="acctstarttime != null">
+                acctstarttime,
+            </if>
+            <if test="acctstoptime != null">
+                acctstoptime,
+            </if>
+            <if test="acctsessiontime != null">
+                acctsessiontime,
+            </if>
+            <if test="schoolCode != null">
+                school_code,
+            </if>
+            <if test="facultyCode != null">
+                faculty_code,
+            </if>
+            <if test="majorCode != null">
+                major_code,
+            </if>
+            <if test="classCode != null">
+                class_code,
+            </if>
+            <if test="sex != null">
+                sex,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=BIGINT},
+            </if>
+            <if test="outid != null">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="acctstarttime != null">
+                #{acctstarttime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="acctstoptime != null">
+                #{acctstoptime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="acctsessiontime != null">
+                #{acctsessiontime,jdbcType=INTEGER},
+            </if>
+            <if test="schoolCode != null">
+                #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                #{sex,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.net.entity.A3RadacctTime">
+        update radacct_time
+        <set>
+            <if test="outid != null">
+                outid = #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="acctstarttime != null">
+                acctstarttime = #{acctstarttime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="acctstoptime != null">
+                acctstoptime = #{acctstoptime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="acctsessiontime != null">
+                acctsessiontime = #{acctsessiontime,jdbcType=INTEGER},
+            </if>
+            <if test="schoolCode != null">
+                school_code = #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                faculty_code = #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                major_code = #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                class_code = #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                sex = #{sex,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.net.entity.A3RadacctTime">
+        update
+        radacct_time
+        set outid = #{outid,jdbcType=VARCHAR},
+        acctstarttime =
+        #{acctstarttime,jdbcType=TIMESTAMP},
+        acctstoptime =
+        #{acctstoptime,jdbcType=TIMESTAMP},
+        acctsessiontime =
+        #{acctsessiontime,jdbcType=INTEGER},
+        school_code =
+        #{schoolCode,jdbcType=VARCHAR},
+        faculty_code =
+        #{facultyCode,jdbcType=VARCHAR},
+        major_code =
+        #{majorCode,jdbcType=VARCHAR},
+        class_code =
+        #{classCode,jdbcType=VARCHAR},
+        sex = #{sex,jdbcType=VARCHAR}
+        where id =
+        #{id,jdbcType=BIGINT}
+    </update>
+</mapper>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ziyun.auth.mapper.DataPermissionMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.common.entity.DataPermission">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="code" jdbcType="VARCHAR" property="code"/>
+        <result column="name" jdbcType="VARCHAR" property="name"/>
+        <result column="parent_id" jdbcType="BIGINT" property="parentId"/>
+        <result column="type" jdbcType="INTEGER" property="type"/>
+        <result column="description" jdbcType="VARCHAR" property="description"/>
+        <result column="status" jdbcType="INTEGER" property="status"/>
+        <result column="deleted" jdbcType="INTEGER" property="deleted"/>
+        <result column="creator" jdbcType="VARCHAR" property="creator"/>
+        <result column="create_time" jdbcType="TIMESTAMP" property="createTime"/>
+        <result column="update_time" jdbcType="TIMESTAMP" property="updateTime"/>
+    </resultMap>
+
+    <!-- 查询所有数据权限 -->
+    <select id="getAllDataPermission" parameterType="java.util.Map" resultMap="BaseResultMap">
+        SELECT
+        id,code,name,parent_id,type,description,`status`
+        FROM
+        auth_data_permission_new
+        WHERE deleted = 1
+        ORDER BY id
+    </select>
+
+    <!-- 查询所有数据权限(可带状态查询条件) -->
+    <select id="getDataPermissionTree" parameterType="java.util.Map" resultMap="BaseResultMap">
+        SELECT
+        t1.id,
+        t1.code,
+        t1.name,
+        t1.parent_id,
+        t1.type,
+        t1.description,
+        t1.status
+        FROM
+        auth_data_permission_new t1
+        <if test="logonIsSuperAdmin == null">
+            INNER JOIN auth_role_data_permission t2 on t1.id = t2.data_permission_id
+        </if>
+        WHERE t1.deleted = 1
+        <if test="status != null">
+            and t1.status = #{status}
+        </if>
+        <if test="logonIsSuperAdmin == null and logonRoleId != null">
+            and t2.role_id = #{logonRoleId}
+        </if>
+        ORDER BY t1.id
+    </select>
+
+    <!-- 根据用户id，查询数据权限-->
+    <select id="listDataPerm" parameterType="java.lang.Long" resultMap="BaseResultMap">
+    SELECT
+        *
+    FROM
+        auth_data_permission
+    WHERE
+        data_permission_id in (
+            SELECT
+                data_id
+            FROM
+                auth_user_data
+            WHERE
+                user_id = #{userId}
+        )
+    </select>
+
+    <!--查询该角色下的数据权限-->
+    <select id="getDataPermissionByRole" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        SELECT
+        data_permission.*
+        FROM
+        auth_role_data_permission role_data_permission
+        INNER JOIN auth_data_permission_new data_permission ON role_data_permission.data_permission_id =
+        data_permission.id
+        WHERE 1 = 1 and data_permission.deleted = 1 and data_permission.status = 1
+        <if test="id != null and id != ''">
+            and role_data_permission.role_id = #{roleId}
+        </if>
+    </select>
+
+    <insert id="saveDataPermission" parameterType="com.ziyun.common.entity.Role">
+        INSERT INTO auth_role_data_permission(role_id,data_permission_id)
+        VALUE
+        <trim suffixOverrides=",">
+            <foreach collection="dataPermissionId" item="dataId">
+                (#{roleId},#{dataId}),
+            </foreach>
+        </trim>
+    </insert>
+
+    <!-- 根据角色id查询角色数据权限id -->
+    <select id="selectRoleDataByRole" parameterType="com.ziyun.common.entity.Role" resultType="java.lang.Long">
+        SELECT t1.data_permission_id
+        FROM auth_role_data_permission t1
+        INNER JOIN auth_data_permission_new t2 on t1.data_permission_id = t2.id
+        WHERE 1 = 1
+        <if test="roleId != null">
+            and t1.role_id = #{roleId}
+        </if>
+    </select>
+
+    <!-- 根据角色id查询角色数据权限id -->
+    <select id="selectDataPermByRole" parameterType="com.ziyun.common.entity.Role" resultMap="BaseResultMap">
+        select t1.id,t1.parent_id from auth_data_permission_new t1
+        INNER JOIN auth_role_data_permission t2 on t1.id = t2.data_permission_id
+        where t1.deleted = 1 and t1.status = 1
+        <if test="roleId != null">
+            and t2.role_id = #{roleId}
+        </if>
+    </select>
+
+    <!-- 根据角色id删除角色数据权限关系 -->
+    <delete id="deleteByRole" parameterType="com.ziyun.common.entity.Role">
+        DELETE FROM auth_role_data_permission
+        WHERE 1 = 1
+        <if test="roleId != null">
+            and role_id = #{roleId}
+        </if>
+        <if test="ids != null">
+            AND role_id in
+            <foreach collection="ids" open="(" close=")" separator="," item="id">
+                #{id}
+            </foreach>
+        </if>
+    </delete>
+
+    <!-- 根据角色id，权限列表删除角色数据权限关系 -->
+    <delete id="deleteRoleData">
+        DELETE FROM auth_role_data_permission
+        WHERE role_id = #{roleId}
+        <if test="dataList != null">
+            and data_permission_id in
+            <foreach collection="dataList" open="(" close=")" separator="," item="data">
+                #{data}
+            </foreach>
+        </if>
+    </delete>
+
+    <!-- 修改数据权限状态 -->
+    <update id="updateStatusIncludeChild" parameterType="com.ziyun.common.entity.DataPermission">
+        UPDATE auth_data_permission_new
+        SET status = #{status}
+        WHERE find_in_set(id, getDataPermChild(#{id}))
+    </update>
+
+    <!-- 修改数据权限状态(根据id列表) -->
+    <update id="updateStatus" parameterType="java.util.Map">
+        UPDATE auth_data_permission_new
+        SET status = #{status}
+        WHERE find_in_set(id,#{ids})
+    </update>
+</mapper>

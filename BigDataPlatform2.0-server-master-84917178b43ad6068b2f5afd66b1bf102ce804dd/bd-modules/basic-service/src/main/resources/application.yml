@@ -1,0 +1,226 @@
+spring:
+  ## 环境切换
+  profiles:
+    active: dev
+  application:
+    name: basic-service
+  jackson:
+      date-format: yyyy-MM-dd HH:mm:ss
+      time-zone: GMT+8
+
+# mybatis配置
+mybatis:
+  ## 实体类路径
+  typeAliasesPackage: com.ziyun.basic.entity
+  ## mapping文件路径
+  mapperLocations: classpath:mapping/*.xml
+
+ # 日志配置
+logging:
+  config: classpath:log4j2.yml
+# Excel导出配置
+excel:
+  xlsLocation: xls/
+  record:
+    limit: 1000
+  basics:
+    source:
+      name: 生源地分布
+      fileName: basics_source.xls
+    countbybrithdry:
+      name: 年龄分布
+      fileName: basics_count_by_brithdry.xls
+    basicsexratio:
+      name: 男女比例
+      fileName: basic_sex_ratio.xls
+  reward:
+    scholarshiplist:
+      name: 获奖类型
+      fileName: reward_scholarship_list.xls
+    scholarshipsex:
+      name: 获奖次数
+      fileName: reward_scholarship_sex.xls
+  punish:
+    punishlist:
+      name: 处罚人员
+      fileName: punish_list.xls
+    activeRanking:
+         name: 活动积分排名
+         path: activeRanking.xls
+---
+
+# 开发环境
+server:
+  port: 7013
+  max-http-header-size: 40960
+spring:
+  profiles: dev
+  datasource:
+      name: mysqlDataSource
+      url: jdbc:mysql://192.168.101.217:3306/datacenter_dev_v2?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+      username: dev
+      password: lJZx2Ik5eqX3xBDp
+      driver-class-name: com.mysql.jdbc.Driver
+      testOnBorrow: true
+      validationQuery: select 1
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 0
+    ## 主机
+    host: 192.168.101.212
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password: NaRT9gnxMKZ6MqA2
+    ## 连接超时时间（秒）
+    timeout: 43200
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8606/eureka/
+  instance:
+    ## 租期更新时间间隔（默认30秒）
+    leaseRenewalIntervalInSeconds: 15
+    ## 租期到期时间（默认90秒）
+    leaseExpirationDurationInSeconds: 30
+
+authority:
+    management:
+        path: http://192.168.101.211:8101
+# swagger 配置
+swagger:
+ show: true
+
+ribbon:
+   eureka:
+     enabled: true
+   ReadTimeout: 60000
+   ConnectTimeout: 60000
+
+---
+
+ #测试环境
+spring:
+  profiles: test
+  datasource:
+        name: mysqlDataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://192.168.101.218:3306/datacenter_v2?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+        username: app
+        password: ZFRwjk2RPNxD346z
+        testOnBorrow: true
+        validationQuery: select 1
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 1
+    ## 主机
+    host: 192.168.101.212
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password: NaRT9gnxMKZ6MqA2
+    ## 连接超时时间（秒）
+    timeout: 43200
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+
+server:
+  port: 7013
+  max-http-header-size: 40960
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://192.168.101.211:8606/eureka/
+  instance:
+    ## 租期更新时间间隔（默认30秒）
+    leaseRenewalIntervalInSeconds: 15
+    ## 租期到期时间（默认90秒）
+    leaseExpirationDurationInSeconds: 30
+# swagger 配置
+swagger:
+ show: true
+authority:
+    management:
+        path: http://192.168.101.211:8101
+ribbon:
+   eureka:
+     enabled: true
+   ReadTimeout: 60000
+   ConnectTimeout: 60000
+---
+
+# 生产环境
+server:
+  port: 7013
+  max-http-header-size: 40960
+spring:
+  profiles: prod
+  datasource:
+       name: mysqlDataSource
+       driver-class-name: com.mysql.jdbc.Driver
+       url: jdbc:mysql://10.130.254.28:3306/datacenter?autoReconnect=true&useUnicode=true&characterEncoding=UTF-8
+       username: root
+       password: dd@2018
+       testOnBorrow: true
+       validationQuery: select 1
+  redis:
+    ## Redis数据库索引（默认为0）
+    database: 0
+    ## 主机
+    host: 10.130.254.28
+    ## 端口
+    port: 6379
+    ## Redis服务器连接密码（默认为空）
+    password:
+    ## 连接超时时间（秒）
+    timeout: 43200
+    pool:
+      ## 连接池最大连接数（使用负值表示没有限制）
+      max-active: 600
+      ## 连接池最大阻塞等待时间（使用负值表示没有限制）
+      max-wait: 1000
+      ## 连接池中的最大空闲连接
+      max-idle: 300
+      ## 连接池中的最小空闲连接
+      min-idle: 200
+# eureka server
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://10.130.254.28:8606/eureka/
+  instance:
+    ## 租期更新时间间隔（默认30秒）
+    leaseRenewalIntervalInSeconds: 15
+    ## 租期到期时间（默认90秒）
+    leaseExpirationDurationInSeconds: 30
+
+authority:
+    management:
+        path: http://10.130.254.28:7012
+
+# swagger 配置
+swagger:
+ show: false
+
+ribbon:
+   eureka:
+     enabled: true
+   ReadTimeout: 60000
+   ConnectTimeout: 60000

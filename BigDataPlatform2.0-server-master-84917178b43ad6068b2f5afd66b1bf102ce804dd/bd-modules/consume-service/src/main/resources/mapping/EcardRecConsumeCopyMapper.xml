@@ -1,0 +1,1657 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.consume.dao.EcardRecConsumeCopyDao">
+    <resultMap id="BaseResultMap"
+               type="com.ziyun.consume.entity.EcardRecConsumeCopy">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <id column="opdt" property="opdt" jdbcType="TIMESTAMP"/>
+        <result column="ecode" property="ecode" jdbcType="VARCHAR"/>
+        <result column="sourceTable" property="sourcetable" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="cardsn" property="cardsn" jdbcType="BIGINT"/>
+        <result column="opcount" property="opcount" jdbcType="BIGINT"/>
+        <result column="oddfare" property="oddfare" jdbcType="BIGINT"/>
+        <result column="opfare" property="opfare" jdbcType="BIGINT"/>
+        <result column="sumfare" property="sumfare" jdbcType="BIGINT"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+    <!-- +++++++++++业务查询 +++++++++++ -->
+
+    <resultMap id="ResultDataMap" type="com.ziyun.consume.vo.ResultData">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+        <result column="datetime" property="datetime" jdbcType="DATE"/>
+        <result column="datetimeStr" property="datetimeStr" jdbcType="VARCHAR"/>
+        <result column="weekindex" property="weekindex" jdbcType="INTEGER"/>
+        <result column="week" property="week" jdbcType="VARCHAR"/>
+        <result column="hourstr" property="hour" jdbcType="VARCHAR"/>
+        <result column="num" property="num" jdbcType="BIGINT"/>
+        <result column="sums" property="sum" jdbcType="DECIMAL"/>
+        <result column="avgs" property="avg" jdbcType="DECIMAL"/>
+        <result column="allAvg" property="allAvg" jdbcType="DECIMAL"/>
+        <result column="monthAvg" property="monthAvg" jdbcType="DECIMAL"/>
+        <result column="allMonthAvg" property="allMonthAvg" jdbcType="DECIMAL"/>
+        <result column="times" property="times" jdbcType="DECIMAL"/>
+        <result column="avgTimes" property="avgTimes" jdbcType="DECIMAL"/>
+        <result column="allAvgTimes" property="allAvgTimes" jdbcType="DECIMAL"/>
+        <result column="dayAvgConsume" property="dayAvgConsume" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <!--成绩提高分析 begin -->
+
+    <select id="creteCosumeBySemester" resultType="Map" parameterType="com.ziyun.consume.vo.Params"
+            statementType="CALLABLE">
+        <![CDATA[
+          call create_consume();
+        ]]>
+    </select>
+
+    <!--成绩提高分析 5、消费  按学期统计-->
+    <select id="getConsume4AnalysisBySemester" resultType="Map" parameterType="com.ziyun.consume.vo.Params">
+        SELECT
+        b2.outid,
+        b2.semester,
+        b2.grade_level,
+        b2.num,
+        rc2.avg_credit_point
+        FROM
+        (SELECT
+        b.outid,
+        round(SUM(b.sum_opfare)/100, 2) AS num,
+        b.semester,
+        b.grade_level
+        FROM r_rec_consume b
+        WHERE 1=1
+        <include refid="Base_where_List_r_consume"/>
+        GROUP BY b.outid,b.semester) AS b2,
+        (SELECT
+        rc.outid,
+        round(sum(rc.total_credit_point)/sum(rc.total_credit),2) AS avg_credit_point,
+        rc.semester
+        FROM r_credit_semester rc
+        WHERE 1=1
+        <include refid="Base_where_List_rc"/>
+        GROUP BY rc.outid,rc.semester
+        HAVING sum(rc.total_credit)>0
+        ) AS rc2
+        WHERE rc2.outid = b2.outid AND rc2.semester = b2.semester
+        ORDER BY b2.grade_level;
+    </select>
+
+    <select id="getConsume4Analysis" resultType="Map"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT
+        b2.num,
+        rc2.avg_credit_point
+        FROM
+        (SELECT
+        b.outid,
+        round(SUM(b.opfare)/100, 2) AS num
+        FROM m_rec_consume_copy b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid) AS b2,
+        (SELECT
+        rc.outid,
+        round(sum(rc.total_credit_point)/sum(rc.total_credit),2) AS avg_credit_point
+        FROM
+        <include refid="Base_where_List_semester"/>
+        WHERE 1=1
+        <include refid="Base_where_List_rc"/>
+        GROUP BY rc.outid
+        HAVING sum(rc.total_credit)>0
+        ) AS rc2
+        WHERE rc2.outid
+        = b2.outid;
+    </select>
+
+    <sql id="Base_where_List_semester">
+        <choose>
+            <when test="semester != null and semester!=''">
+                r_credit_semester rc
+            </when>
+            <otherwise>
+                r_credit_distinct rc
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!--消费类目明细排序-->
+    <sql id="base_consumeDetail_sort">
+        order BY
+        <if test="sort == 'sums'">
+            cast( SUM(b.opfare) as float)
+        </if>
+        <if test="sort == 'total_consume_num'">
+            cast(count(b.outid) as float)
+        </if>
+        <if test="sort == 'total_person_num'">
+            cast (count(distinct b.outid) as float)
+        </if>
+        <if test="sort == 'avg_consume_money'">
+            cast (round(SUM(b.opfare)/count(b.outid)/100.0,2) as float )
+        </if>
+        <if test="sort == 'avg_person_money'">
+            cast(round(SUM(b.opfare)/count(distinct b.outid)/100.0,2) as float)
+        </if>
+        <if test="sort == null ">
+            cast (SUM(b.opfare) as float)
+        </if>
+    </sql>
+
+    <!--餐厅消费-->
+    <sql id="Base_where_restaurant">
+        <if test="topName != null and topName != ''">
+            and topName = #{topName}
+        </if>
+        <if test="dptName != null and dptName != ''">
+            <if test="dptName == '其他'">
+                and dptName NOT IN ('扬子餐饮','扬子餐饮2','华诚餐饮')
+            </if>
+            <if test="dptName != '其他'">
+                and dptName = #{dptName}
+            </if>
+        </if>
+        <if test="windowName != null and windowName != ''">
+            AND (WINNAME like '%${windowName}%' OR WINCODE LIKE '%${windowName}%')
+        </if>
+    </sql>
+
+    <!-- 动态查询条件（时间区间左闭右开） -->
+    <sql id="Base_where_List2">
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid LIKE '${outid}%'</if>
+        <!-- 学生姓名-->
+        <if test="name !=null and name !='' ">
+            AND t.NAME LIKE '%${name}%'
+        </if>
+        <if test="sex != null">and t.sex = '${sex}'</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                '${item}'
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.opdt <![CDATA[ >= ]]> '${bdate}'
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.opdt <![CDATA[ < ]]> '${edate}'
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.IMPOVERISH=1
+        </if>
+        <if test="politicalCode !=null">
+            and t.political_code_all = ${politicalCode}
+        </if>
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                '${year}'
+            </foreach>
+        </if>
+        <!-- 在籍，不在籍 -->
+        <if test="eduStatus != null">
+            and t.edu_status like '%${eduStatus}%'
+        </if>
+    </sql>
+
+    <select id="getConsumeCategory4Analysis" resultType="Map"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT
+        b2.typeName,
+        b2.outid,
+        b2.class_code,
+        b2.num,
+        rc2.avg_credit_point
+        FROM
+        ( select
+        k.outid ,m.class_code,m.class_name AS typeName, round(SUM(k.sum) /100, 2) AS num
+        from m_consume_type m ,
+        (
+        SELECT
+        b.outid,
+        b.acccode,
+        SUM(b.opfare) AS sum
+        FROM
+        m_rec_consume_copy b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid, b.acccode
+
+        ) k where m.acccode=k.acccode
+        GROUP BY k.outid,m.class_code) AS b2
+        ,
+        (SELECT
+        rc.outid,
+        round(sum(rc.total_credit_point)/sum(rc.total_credit),2) AS avg_credit_point
+        FROM
+        <include refid="Base_where_List_semester"/>
+        WHERE 1=1
+        <include refid="Base_where_List_rc"/>
+        GROUP BY rc.outid
+        HAVING sum(rc.total_credit)>0
+        ) AS rc2
+        WHERE rc2.outid = b2.outid;
+    </select>
+
+    <!--成绩提高分析 end -->
+
+    <!-- 根据查询条件:获取记录的：最早时间、最晚时间：：用于前端没传时间参数的时间，计算有多少天等时间函数 -->
+    <select id="startEndTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT min(b.opdt) as bdate,max(b.opdt) as edate
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- 新版{群体查询：为提高查询效率：按照天、班级汇总}16、根据查询条件:获取记录的：最早时间、最晚时间：：用于前端没传时间参数的时间，计算有多少天等时间函数 -->
+    <select id="startEndTimesNew" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT min(b.opdt) as bdate,max(b.opdt) as edate
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <select id="sumCollect" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select round(x.sums/100, 0) as sums, round(x.sums/x.num/100, 0) as
+        avgs,round(x.times/x.num, 0) as avgTimes,x.times as times
+        from (
+        SELECT SUM(b.opfare) AS
+        sums,count(DISTINCT(b.outid)) as num,count(*) times
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        ) x
+    </select>
+
+    <!--计算消费总金额、消费天数、日平均消费金额-->
+    <select id="avgConsumeByDay" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select round(x.sums*1.0/100, 2) as sums, round(x.sums*1.0/x.num/100, 2) as
+        avgs, x.num as times
+        from (
+        SELECT SUM(b.opfare) AS
+        sums,count(DISTINCT(b.opdt)) as num
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        ) x
+    </select>
+
+    <!-- 1.1.2、 分页查询:不传默认top10消费大户榜top10 时间段内的合计 -->
+    <!-- 2.1.2、分页查询:不传默认top10 消费能力榜TOP10 还得根据选择的时间计算月，然后算出月平均消费：因为时间是相同的consume_one_day_num -->
+    <select id="sumTopList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.outid, SUM(b.opfare) AS sums,count(DISTINCT(b.opdt)) as
+        num,round(SUM(b.opfare)*1.00/count(DISTINCT(b.opdt))/100,2) as "dayAvgConsume"
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid
+        <include refid="base_sort"/>
+        <include refid="base_order"/>
+        <include refid="Paging"/>
+    </select>
+
+    <!-- 3.1.2、 (分页查询:不传默认top10) 月节俭榜top10 还得根据选择的时间计算月，然后算出月平均消费：因为时间是相同的 只是排序和上面的不一样 consume_one_day_num-->
+    <select id="sumBottomList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.outid, SUM(b.opfare) AS sums,count(DISTINCT(b.opdt)) as num
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.outid
+        ORDER BY sums ASC
+        <include refid="Paging"/>
+    </select>
+    <!-- 3.1.2、 (分页查询)月节俭榜top10 还得根据选择的时间计算月，然后算出月平均消费：因为时间是相同的 只是排序和上面的不一样 -->
+    <!-- <select id="sumBottomPage" resultType="Map"
+        parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.outid, SUM(b.opfare) AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN  OWN_ORG_STUDENT_TYPE t
+                   ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List" />
+        GROUP BY b.outid
+        ORDER BY sums
+        <include refid="Paging" />
+    </select> -->
+
+    <!-- 统计：消费人数 consume_one_day_personNum3 -->
+    <select id="sumCount" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT count(distinct(b.outid)) AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- 合并考试费的：把考试相关的费用全部合并到考试费这一项中显示 -->
+    <!-- 4、 消费总体偏好 -通过对Java对日期的格式进行再次处理 -->
+    <!-- 7.2、 消费人群分析 -｛消费类型｝ -通过对Java对日期的格式进行再次处理consume_one_day_type3 -->
+    <select id="preferenceList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.class_code1 as acccode,m.class_name as dscrp, SUM(b.opfare) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code1,m.class_name
+        <!-- m.class_name之所以加到group by，是因为这里有才能在select上显示 -->
+        ORDER BY sums DESC
+
+        <!-- select
+        m.class_code as 'acccode',m.class_name as 'dscrp', SUM(k.sum) AS
+        sum
+        from m_consume_type m ,
+        (
+        SELECT b.acccode, SUM(b.opfare) AS sum
+        FROM
+        m_rec_consume_copy b
+        WHERE
+        1=1
+            <include refid="Base_where_List" />
+            GROUP BY b.acccode
+            ) k where m.acccode=k.acccode
+            GROUP BY m.class_code
+            ORDER BY sum DESC -->
+    </select>
+
+    <!-- 导出(按照班级汇总)  -->
+    <!-- 合并考试费的：把考试相关的费用全部合并到考试费这一项中显示 -->
+    <!-- 4、 消费总体偏好 -通过对Java对日期的格式进行再次处理 -->
+    <!-- 7.2、 消费人群分析 -｛消费类型｝ -通过对Java对日期的格式进行再次处理 -->
+    <select id="preferenceList4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        b.class_code,b.class_code1 as acccode,m.class_name as dscrp, SUM(b.opfare) AS
+        sums
+        from
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code,b.class_code1,m.class_name
+        ORDER BY b.class_code,sums DESC
+    </select>
+
+
+    <!-- 4、 消费总体偏好 ++ 显示分类下的商户排名：只显示消费商户，去掉保险、考试等学校统一收费 -->
+    <select id="preferenceListTop" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        m.dptcode as dscrp,m.dptname as name, SUM(b.opfare) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        left join v_dept_term m on b.termid=m.termid
+        WHERE 1=1
+        <!-- 查询指定消费类型的：默认无此条件，即查询全部分类的 -->
+        <if test="someCode != null and someCode != '' ">
+            and b.acccode= #{sumesomeCode}
+        </if>
+        <include refid="Base_where_List"/>
+        GROUP BY m.dptcode,m.dptname
+        ORDER BY sums DESC
+        limit 10
+    </select>
+
+    <!-- 10.1.2、消费类目占比(消费类型、男女：统计消费金额) consume_class_day_sex_type2 -->
+
+    <select id="preferenceSex" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        t.sex,b.class_code1 as acccode,SUM(b.opfare)
+        AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE 1=1
+        <!-- <if test="someCode != null and someCode != '' ">
+            and b.class_code1= #{sumesomeCode}
+        </if> -->
+        <include refid="Base_where_List"/>
+        GROUP BY t.sex,b.class_code1
+        <!-- ORDER BY sums DESC -->
+    </select>
+
+    <!-- 10.1.2.2、 消费类目占比的明细(考试部分的)：汇总考试的三级分类的金额 -java需要再次处理：按照消费类型（把男女的加到一块，再排序）consume_class_day_sex_type2 -->
+    <select id="preferenceClass3SexTest" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        t.sex,b.class_code3 as dscrp,m.class_name3 as name, SUM(b.opfare)
+        AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE
+        b.class_code1=800
+        <include refid="Base_where_List"/>
+        GROUP BY t.sex,b.class_code3,m.class_name3
+        <!-- ORDER BY sums DESC -->
+    </select>
+
+    <!-- 10.1.2.3、 消费类目占比的明细(去掉考试部分的)只统计各个消费分类的商家： -java需要再次处理：按照消费类型（把男女的加到一块，再排序、分页）consume_class_day_dept5 -->
+    <select id="preferenceDeptnameSexNoTest" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        t.sex,m.dptcode as dscrp,m.dptname as name, SUM(b.opfare) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        left join v_dept_term m on b.termid=m.termid
+        WHERE
+        <!-- 不包含"考试"类,考试类显示三级分类作为商家 -->
+        b.class_code1 not in(800)
+        <!-- 查询指定消费类型的：默认无此条件，即查询全部分类的 -->
+        <if test="someCode != null and someCode != '' and someCode != '-100' ">
+            and b.class_code1= #{sumesomeCode}
+        </if>
+        <!-- 查询"其他"分类的消费商家，编码为（-100） -->
+        <if test="someCode != null and someCode == '-100' ">
+            and b.class_code1 not in(210,215,800)
+        </if>
+        <include refid="Base_where_List"/>
+        GROUP BY t.sex,m.dptcode,m.dptname
+        <!-- ORDER BY sums DESC -->
+    </select>
+
+    <!-- 20.2.4、消费明细-关联显示商家：(根据扣费终端和商家的关联表)  过滤掉了考试费 -->
+    <select id="detailHourDeptnameNoTest" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        b.opdatetime as datetime,b.hourstr,m.dptcode as dscrp,m.dptname as name, b.opfare AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        left join v_dept_term m on b.termid=m.termid
+        WHERE 1=1
+        <include refid="Base_where_List2"/>
+    </select>
+
+    <!-- 20.2.3、 消费明细(考试类)：显示小时、消费类型（最小分类）、金额 -->
+    <select id="detailHourTypeTest" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        b.opdatetime as datetime,b.hourstr,b.ACCCODE as dscrp,m.DSCRP as name, b.opfare as sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE b.class_code1=800
+        <include refid="Base_where_List2"/>
+    </select>
+
+    <!-- 考试费的：把考试相关的费用全部合并到考试费这一项中显示 -->
+    <!-- 4、 消费总体偏好 -通过对Java对日期的格式进行再次处理 -->
+    <select id="preferenceListTest" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        b.class_code3 as acccode,m.class_name3 as dscrp, SUM(b.opfare)
+        AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE
+        b.class_code1=800
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code3,m.class_name3
+        ORDER BY sums DESC
+    </select>
+
+    <!-- 导出(按照班级汇总) -->
+    <!-- 考试费的：把考试相关的费用全部合并到考试费这一项中显示 -->
+    <!-- 4、 消费总体偏好 -通过对Java对日期的格式进行再次处理 -->
+    <select id="preferenceListTest4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select
+        b.class_code,b.class_code3 as acccode,m.class_name3 as dscrp, SUM(k.sum)
+        AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+
+        WHERE
+        b.class_code1=800
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code,b.class_code3,m.class_name3
+        ORDER BY b.class_code,sums DESC
+    </select>
+
+    <!-- 不合并考试费的： -->
+    <!-- 4、 消费总体偏好 -通过对Java对日期的格式进行再次处理 -->
+    <!-- 7.2、 消费人群分析 -｛消费类型｝ -通过对Java对日期的格式进行再次处理 -->
+    <select id="preferenceListNot" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.acccode, SUM(b.opfare) AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.acccode
+        ORDER BY sums DESC
+    </select>
+
+    <!-- 5、 消费金额变化趋势- 消费者的人均- 通过对Java对日期的格式进行再次处理 consume_class_day_top3 -->
+    <select id="timeChangeList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.opdt as datetime, SUM(b.opfare)
+        AS sums,count(DISTINCT(b.outid)) as num  <!-- 每天的消费人数（去重） -->
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.opdt
+        ORDER BY b.opdt
+        <include refid="Paging"/>
+    </select>
+
+
+    <!-- 5.2.0.0、 消费金额变化趋势- 消费者的月份、月消费、月平均每天人数consume_one_day_personNum3 -->
+    <select id="monthAvgList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select cast(t.datetimestr as char(7)) as datetimestr,round(SUM(t.sums)/100,2) as sums,avg(t.num) as num
+        from (
+        SELECT b.opdt as datetimestr, SUM(b.opfare)
+        AS sums,count(DISTINCT(b.outid)) as num
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.opdt
+        ) t
+        GROUP BY cast(t.datetimestr as char(7))
+        <!--<include refid="Paging" /> 月份要查询全部数据才会有数据，不能加上分页 -->
+    </select>
+
+    <!-- 5.1.2、（分页功能的统计总数） 消费金额变化趋势 consume_detail_dept_noTest-->
+    <select id="timeChangeCount" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT count(DISTINCT(b.opdt))
+        AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!--导出(按照班级汇总) 5、 消费金额变化趋势- 消费者的人均- 通过对Java对日期的格式进行再次处理 -->
+    <select id="timeChangeList4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT
+        b.class_code,b.opdt as datetime, SUM(b.opfare)
+        AS sums,count(DISTINCT(b.outid)) as num
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code,b.opdt
+        ORDER BY b.class_code,b.opdt
+    </select>
+
+    <!-- 5、 消费金额变化趋势- 只有金额，没有人数：：个人 -->
+    <select id="timeChangeListOne" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.opdt as datetime, SUM(b.opfare)
+        AS sums  <!-- 每天的消费人数（去重） -->
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.opdt
+    </select>
+
+    <!-- 5、 消费金额变化趋势- 消费者的人均-::个人对应的班级 -->
+    <!-- <select id="timeChangeListClass" resultMap="ResultDataMap" parameterType="com.ziyun.consume.vo.Params">
+        SELECT DATE_FORMAT(b.opdt, '%Y-%m-%d') as datetimeStr, SUM(b.opfare) AS sum,count(DISTINCT(b.outid))
+        as num FROM m_rec_consume_copy b WHERE 1=1 <include refid="Base_where_List"
+        /> GROUP BY datetimeStr </select> -->
+
+    <!-- 6、 消费时段分布 -按照周几、小时汇总- 通过对Java对日期的格式进行再次处理 -->
+    <select id="weekHourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.weekindex AS weekindex,
+        b.hourstr,
+        COUNT(*) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.weekindex, b.hourstr
+    </select>
+
+
+    <!-- 6.2.0.0.0、 日均消费金额｛查询某个人某一天的消费时段分布｝ -按小时汇总：平均消费{消费金额/消费次数} -->
+    <select id="hourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT
+        b.hourstr,round(SUM(b.opfare)/100,2) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.hourstr
+    </select>
+
+    <!-- 6.1.2、 消费时段分布 -按照周几、小时汇总:消费金额- 通过对Java对日期的格式进行再次处理consume_one_day_week_hour2 -->
+    <select id="weekHourListNew" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.weekindex AS weekindex,
+        b.hourstr,
+        SUM(b.opfare) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.weekindex, b.hourstr
+    </select>
+
+    <!-- 导出(按照班级汇总){这个周几是1-7格式的} 6、 消费时段分布 -按照周几、小时汇总- 通过对Java对日期的格式进行再次处理 -->
+    <select id="weekHourList4Excel" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.class_code,if(b.weekindex=0,7,b.weekindex) AS weekindex,
+        b.hourstr,
+        COUNT(*) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code,b.weekindex, b.hourstr
+        ORDER BY b.class_code,weekindex, b.hourstr
+    </select>
+
+    <!-- 7.1、消费人群分析 -｛男、女｝按照金额，时段内汇总平均 -通过对Java对日期的格式进行再次处理 -->
+    <select id="sexWeekList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.sex,b.weekindex AS weekindex , SUM(b.opfare)
+        AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.weekindex,b.sex
+        ORDER BY weekindex
+    </select>
+
+    <!-- 20.1.2.1、消费人群分析 -按照｛周几、消费类型｝汇总金额，时段内汇总平均 -通过对Java对日期的格式进行再次处理 -->
+    <select id="WeekConsumeType" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.weekindex AS weekindex, b.class_code1 as acccode,
+        SUM(b.opfare) AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.weekindex,b.class_code1
+    </select>
+
+    <!-- ｛按照周几统计人数（学号按照天去重）；统计周几的消费总额；计算周几的人均消费｝ -->
+    <!-- 20.1.2、消费人群分析 -计算周几的人均消费：：｛按照周几统计人数（学号按照天去重）；统计周几的消费总额；｝ -->
+    <select id="sexWeekSum" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        select k.weekindex,SUM(k.sums)/sum(num) as sums,SUM(k.sums) as allAvg
+        from
+        (
+        SELECT b.weekindex AS weekindex, count(DISTINCT(b.outid)) as num,
+        SUM(b.opfare) AS sums
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.weekindex,b.opdt
+        ) k GROUP BY K.weekindex
+    </select>
+
+
+    <!-- 8.1、消费开支情况 -消费情况 -->
+    <select id="consumeDayList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT b.opdt as datetime, SUM(b.opfare)
+        AS sums,count(DISTINCT(b.outid)) as num
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.opdt
+    </select>
+
+
+    <!-- 8.2、充值情况 -->
+    <select id="rechargeDayList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.consume.vo.Params">
+        SELECT DATE_FORMAT(b.opdt, '%Y-%m-%d') as datetimeStr, SUM(b.recharge)
+        AS sums
+        FROM m_rec_consume_recharge b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY datetimeStr
+    </select>
+
+    <!-- 动态查询条件 -->
+    <!-- 排序sort，根据那个字段排序-->
+    <sql id="base_sort">
+        ORDER BY
+        <if test="sort == 'sum'">
+            sums
+        </if>
+        <if test="sort == 'num'">
+            num
+        </if>
+        <if test="sort == 'dayAvgConsume'">
+            "dayAvgConsume"
+        </if>
+        <if test="sort == null or sort == ''">
+            sums
+        </if>
+    </sql>
+
+    <sql id="Base_where_List">
+
+        <!-- <if test="id != null"> and b.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and b.outid = #{outid,jdbcType=VARCHAR}, </if> -->
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = '${outid}'</if>
+        <!-- 学生姓名-->
+        <if test="name !=null and name !='' ">
+            AND t.NAME LIKE '%${name}%'
+        </if>
+
+        <if test="sex != null">and t.sex = '${sex}'</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null"> and b.class_code = #{classCode,jdbcType=VARCHAR}
+            </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                '${item}'
+            </foreach>
+        </if>
+        <!-- 单个班级：直接用等于查询 -->
+        <!-- <if test="classCode != null and classCode.size() == 1"> and b.class_code
+            = #{classCode[0],jdbcType=VARCHAR} </if> -->
+
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.opdt <![CDATA[ >= ]]> '${bdate}'
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.opdt <![CDATA[ <= ]]> '${edate}'
+        </if>
+        <!-- 开始时间 -->
+        <!-- <if test="bdate != null and bdate != '' ">
+            and b.opdt <![CDATA[ >= ]]>
+            #{bdate,jdbcType=DATE}
+        </if> -->
+        <!-- 结束时间 -->
+        <!-- <if test="edate != null and edate != '' ">
+            and b.opdt <![CDATA[ < ]]>
+            #{edate,jdbcType=DATE}
+        </if> -->
+        <!-- 查询有奖学金的学生 -->
+        <!--<if test="scholarship != null">-->
+        <!--and t.SCHOLARSHIP=1-->
+        <!--</if>-->
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and t.IMPOVERISH=1
+        </if>
+
+        <!-- 选择在校期间时，如果学期字段为空，则查询term_num不为0（即在校）的数据 -->
+        <!--<if test="termtype != null and termtype == 1">-->
+        <!--<if test="termNum == null">-->
+        <!--and b.term_num != 0-->
+        <!--</if>-->
+        <!--</if>-->
+        <!-- 选择放假期间时，查询term_num为0的数据。（这里与学期字段有冲突，如果查某个学期的放假期间是不会有数据的） -->
+        <!--<if test="termtype != null and termtype == 2">-->
+        <!--and b.term_num = 0-->
+        <!--</if>-->
+
+        <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+        <!--<if test="politicalCode != null">
+            <if test="termNum == null">
+                and t.political_code_all = ${politicalCode}
+            </if>
+            <if test="termNum != null">
+                and b.political_code = ${politicalCode}
+            </if>
+        </if>-->
+        <if test="politicalCode !=null">
+            and t.political_code_all = ${politicalCode}
+        </if>
+
+        <!-- 入学年份 -->
+        <!--<if test="enrollmentYear != null">
+            and t.enrollment_year = #{enrollmentYear}
+        </if>-->
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND t.enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                '${year}'
+            </foreach>
+        </if>
+        <!--学历 -->
+        <!--<if test="education !=null and education !=''  ">
+            AND t.training_level=#{education}
+        </if>-->
+
+        <!-- 经历学期 -->
+        <!--<if test="termNum != null">-->
+        <!--and b.term_num = ${termNum}-->
+        <!--</if>-->
+
+        <!-- 在籍，不在籍 -->
+        <if test="eduStatus != null">
+            and t.edu_status like '%${eduStatus}%'
+        </if>
+
+    </sql>
+
+    <sql id="Base_where_List_r_consume">
+
+        <!-- <if test="id != null"> and b.id = #{id,jdbcType=INTEGER} </if> <if
+            test="outid != null"> and b.outid = #{outid,jdbcType=VARCHAR}, </if> -->
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+        <if test="sex != null">and b.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null"> and b.class_code = #{classCode,jdbcType=VARCHAR}
+            </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and b.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and b.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+        <!-- 根据学期查询 -->
+        <if test="semester != null and semester!=''">
+            and b.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+    </sql>
+
+    <sql id="Base_where_List_rc">
+        <!-- 根据学期查询 -->
+        <if test="semester != null and semester!=''">
+            and rc.semester like concat(concat(#{semester,jdbcType=VARCHAR}),'%')
+        </if>
+    </sql>
+
+
+    <!-- ++++++ 定时任务++++++ -->
+    <!-- 根据查询条件：动态查询 -->
+    <select id="selectBy" resultMap="BaseResultMap"
+            parameterType="com.ziyun.consume.entity.EcardRecConsumeCopy">
+        select
+        <include refid="Base_Column_List"/>
+        from m_rec_consume_copy
+        where 1=1
+        <include refid="select_where_List"/>
+    </select>
+    <!-- 动态查询条件 -->
+    <sql id="select_where_List">
+        <if test="id != null">and id = #{id,jdbcType=INTEGER}</if>
+        <if test="outid != null">and outid = #{outid,jdbcType=VARCHAR}</if>
+        <if test="cardsn != null">
+            and cardsn = #{cardsn,jdbcType=BIGINT}
+        </if>
+        <if test="opcount != null">
+            and opcount = #{opcount,jdbcType=BIGINT}
+        </if>
+        <!-- 据抽取来源（0主表，1补助表）:不同数据来源，第几张卡、第几次操作会重复' -->
+        <if test="sourcetable != null">
+            and sourceTable = #{sourcetable,jdbcType=BIGINT}
+        </if>
+    </sql>
+
+
+    <!-- ++++++ 定时任务++++++ -->
+
+
+    <select id="selectById" resultMap="BaseResultMap"
+            parameterType="com.ziyun.consume.entity.EcardRecConsumeCopyKey">
+        select
+        <include refid="Base_Column_List"/>
+        from m_rec_consume_copy
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+
+    <!--分页条件 -->
+    <sql id="Paging">
+        <!-- kylin分页用LIMIT 5 OFFSET 2 -->
+        <if test="start!=null">limit ${limit} OFFSET ${start}
+        </if>
+        <!-- <if test="start!=null"> limit #{limit
+			,jdbcType=INTEGER} OFFSET #{start0,jdbcType=INTEGER}
+		</if> -->
+        <!-- 分页最好统一：bootstrap-table分页和自己的ajax请求的分页采用一样的参数 -->
+        <!-- <if test="pageNumber!=null"> limit #{pageNum} ,#{pageSize} </if> -->
+
+        <!-- bootstrap table 分页 -->
+        <!-- <if test="start!=null"> limit #{start0
+            ,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if> -->
+    </sql>
+
+    <sql id="base_order">
+        <if test="order == 'ascending'">
+            ASC
+        </if>
+        <if test="order == 'descending'">
+            DESC
+        </if>
+
+        <if test="sort == null">
+            DESC
+        </if>
+    </sql>
+
+    <!-- +++++++++++业务查询+++++++++++ -->
+
+
+    <sql id="Base_Column_List">
+        id, opdt, ecode, outid,cardsn, opcount, oddfare, opfare,
+        sumfare,
+        acccode,
+        school_code,
+        faculty_code, major_code, class_code, sex
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="com.ziyun.consume.entity.EcardRecConsumeCopyKey">
+        select
+        <include refid="Base_Column_List"/>
+        from m_rec_consume_copy
+        where id = #{id,jdbcType=BIGINT}
+        and opdt =
+        #{opdt,jdbcType=TIMESTAMP}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="com.ziyun.consume.entity.EcardRecConsumeCopyKey">
+        delete from
+        m_rec_consume_copy
+        where id = #{id,jdbcType=BIGINT}
+        and opdt =
+        #{opdt,jdbcType=TIMESTAMP}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.consume.entity.EcardRecConsumeCopy">
+        insert into m_rec_consume_copy
+        (id, opdt, ecode,
+        outid, opcount, oddfare,
+        opfare, sumfare, acccode,
+        school_code, faculty_code, major_code,
+        class_code, sex)
+        values
+        (#{id,jdbcType=BIGINT}, #{opdt,jdbcType=TIMESTAMP},
+        #{ecode,jdbcType=VARCHAR},
+        #{outid,jdbcType=VARCHAR},
+        #{opcount,jdbcType=BIGINT}, #{oddfare,jdbcType=BIGINT},
+        #{opfare,jdbcType=BIGINT}, #{sumfare,jdbcType=BIGINT},
+        #{acccode,jdbcType=BIGINT},
+        #{schoolCode,jdbcType=VARCHAR},
+        #{facultyCode,jdbcType=VARCHAR}, #{majorCode,jdbcType=VARCHAR},
+        #{classCode,jdbcType=VARCHAR}, #{sex,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.consume.entity.EcardRecConsumeCopy">
+        insert into m_rec_consume_copy
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="opdt != null">
+                opdt,
+            </if>
+            <if test="ecode != null">
+                ecode,
+            </if>
+            <if test="outid != null">
+                outid,
+            </if>
+            <if test="opcount != null">
+                opcount,
+            </if>
+            <if test="oddfare != null">
+                oddfare,
+            </if>
+            <if test="opfare != null">
+                opfare,
+            </if>
+            <if test="sumfare != null">
+                sumfare,
+            </if>
+            <if test="acccode != null">
+                acccode,
+            </if>
+            <if test="schoolCode != null">
+                school_code,
+            </if>
+            <if test="facultyCode != null">
+                faculty_code,
+            </if>
+            <if test="majorCode != null">
+                major_code,
+            </if>
+            <if test="classCode != null">
+                class_code,
+            </if>
+            <if test="sex != null">
+                sex,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=BIGINT},
+            </if>
+            <if test="opdt != null">
+                #{opdt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="ecode != null">
+                #{ecode,jdbcType=VARCHAR},
+            </if>
+            <if test="outid != null">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="opcount != null">
+                #{opcount,jdbcType=BIGINT},
+            </if>
+            <if test="oddfare != null">
+                #{oddfare,jdbcType=BIGINT},
+            </if>
+            <if test="opfare != null">
+                #{opfare,jdbcType=BIGINT},
+            </if>
+            <if test="sumfare != null">
+                #{sumfare,jdbcType=BIGINT},
+            </if>
+            <if test="acccode != null">
+                #{acccode,jdbcType=BIGINT},
+            </if>
+            <if test="schoolCode != null">
+                #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                #{sex,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.consume.entity.EcardRecConsumeCopy">
+        update m_rec_consume_copy
+        <set>
+            <if test="ecode != null">
+                ecode = #{ecode,jdbcType=VARCHAR},
+            </if>
+            <if test="outid != null">
+                outid = #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="opcount != null">
+                opcount = #{opcount,jdbcType=BIGINT},
+            </if>
+            <if test="oddfare != null">
+                oddfare = #{oddfare,jdbcType=BIGINT},
+            </if>
+            <if test="opfare != null">
+                opfare = #{opfare,jdbcType=BIGINT},
+            </if>
+            <if test="sumfare != null">
+                sumfare = #{sumfare,jdbcType=BIGINT},
+            </if>
+            <if test="acccode != null">
+                acccode = #{acccode,jdbcType=BIGINT},
+            </if>
+            <if test="schoolCode != null">
+                school_code = #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                faculty_code = #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                major_code = #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                class_code = #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                sex = #{sex,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+        and opdt = #{opdt,jdbcType=TIMESTAMP}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.consume.entity.EcardRecConsumeCopy">
+        update
+        m_rec_consume_copy
+        set ecode = #{ecode,jdbcType=VARCHAR},
+        outid =
+        #{outid,jdbcType=VARCHAR},
+        opcount = #{opcount,jdbcType=BIGINT},
+        oddfare = #{oddfare,jdbcType=BIGINT},
+        opfare =
+        #{opfare,jdbcType=BIGINT},
+        sumfare = #{sumfare,jdbcType=BIGINT},
+        acccode = #{acccode,jdbcType=BIGINT},
+        school_code =
+        #{schoolCode,jdbcType=VARCHAR},
+        faculty_code =
+        #{facultyCode,jdbcType=VARCHAR},
+        major_code =
+        #{majorCode,jdbcType=VARCHAR},
+        class_code =
+        #{classCode,jdbcType=VARCHAR},
+        sex = #{sex,jdbcType=VARCHAR}
+        where id =
+        #{id,jdbcType=BIGINT}
+        and opdt = #{opdt,jdbcType=TIMESTAMP}
+    </update>
+
+    <!--消费学生列表-->
+    <select id="getConsumeStudentList" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT
+        b.outid AS "outid",
+        SUM(b.opfare) AS "sums",
+        count(DISTINCT(opdt)) AS "num",
+        ROUND(SUM(b.opfare)/count(DISTINCT(opdt)),1) as "avgConsume"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t ON b.OUTID = t.OUTID
+        WHERE
+        1 = 1
+        <if test="outids !=null and outids.size >0">
+            AND b.outid IN
+            <foreach collection="outids" open="(" close=")" item="outid" separator=",">
+                #{outid}
+            </foreach>
+        </if>
+        <if test="bdate  !=null and bdate !='' ">
+            and b.opdt <![CDATA[ >= ]]> '${bdate}'
+            AND b.opdt <![CDATA[ <= ]]> '${edate}'
+        </if>
+        GROUP BY
+        b.outid
+        ORDER BY
+        b.outid desc
+    </select>
+
+    <!-- 统计消费总天数-->
+    <select id="totalConsumeDays" parameterType="com.ziyun.consume.vo.Params" resultType="java.math.BigDecimal">
+        SELECT
+        sum(bb.nums) AS totalNums
+        FROM
+        (
+        SELECT
+        count(DISTINCT opdt) AS nums,
+        t.outid
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN own_org_student_type t ON b.outid = t.outid
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY
+        t.outid
+        ) bb
+    </select>
+
+    <!-- 消费类目明细 （全部）-->
+    <select id="getConsumeCategoryDetail" parameterType="com.ziyun.consume.vo.Params" resultType="java.util.Map">
+        select
+        b.class_code1 as "acccode",round(SUM(b.opfare)/100.0,2 ) AS "sums" ,count(b.outid) as "total_consume_num"
+        ,count(distinct b.outid) as "total_person_num",
+        round(SUM(b.opfare)/count(b.outid)/100.0,2) as "avg_consume_money",round(SUM(b.opfare)/count(distinct
+        b.outid)/100.0,2) as "avg_person_money"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode=m.acccode
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code1
+        <include refid="base_consumeDetail_sort"/>
+        <include refid="base_order"/>
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getConsumeCategoryDetailOther" parameterType="com.ziyun.consume.vo.Params"
+            resultType="java.util.Map">
+        select
+        b.outid AS "outid", b.class_code1 as "acccode",round(SUM(b.opfare)/100.0,2 ) AS "sums",count(b.outid) AS "num"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE 1=1
+        and b.class_code1 NOT IN (210,215,216,222,800)
+        <include refid="Base_where_List"/>
+        GROUP BY b.class_code1,b.outid
+    </select>
+
+    <!--消费类目明细 （餐费列表）-->
+    <select id="getCanteenConsumeDetail" parameterType="com.ziyun.consume.vo.Params" resultType="java.util.Map">
+        SELECT
+        TOPNAME as "topName"
+        <if test="queryType == 3">
+            , DPTNAME as "dptName"
+        </if>
+        <if test="queryType == 4">
+            , DPTNAME as "dptName", WINNAME as "winName",WINCODE as "winCode"
+        </if>
+        , round(SUM(b.opfare)/100.0,2 ) as "sums",
+        count(DISTINCT b.outid) as "total_person_num",
+        count(b.outid) as "total_consume_num",
+        round(SUM(b.opfare)/count(b.outid)/100.0,2) as "avg_consume_money",
+        round(SUM(b.opfare)/count(distinct b.outid)/100.0,2) as "avg_person_money"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN term_dept_top d ON b.TERMID = d.TERMID
+        LEFT JOIN own_org_student_type t ON b.outid = t.outid
+        WHERE 1=1
+        and topcode in('001','002')
+        AND winName !='浴室'
+        <include refid="Base_where_List"/>
+        <!-- 餐厅条件筛选-->
+        <include refid="Base_where_restaurant"/>
+        GROUP BY
+        TOPNAME
+        <if test="queryType == 3">
+            ,DPTNAME
+        </if>
+        <if test="queryType == 4">
+            , DPTNAME , WINNAME,WINCODE
+        </if>
+        <include refid="base_consumeDetail_sort"/>
+        <include refid="base_order"/>
+        <include refid="Paging"/>
+    </select>
+
+
+    <!--消费类目明细 （餐费列表长度）-->
+    <select id="getCanteenConsumeDetailCount" parameterType="com.ziyun.consume.vo.Params"
+            resultType="java.lang.Integer">
+        SELECT count(1) as "num" FROM (
+        SELECT
+        TOPNAME
+        <if test="queryType == 3">
+            , DPTNAME
+        </if>
+        <if test="queryType == 4">
+            , DPTNAME , WINNAME
+        </if>
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN term_dept_top d ON b.TERMID = d.TERMID
+        LEFT JOIN own_org_student_type t ON b.outid = t.outid
+        WHERE 1=1
+        and topcode in('001','002')
+        AND winName !='浴室'
+        <include refid="Base_where_List"/>
+        <include refid="Base_where_restaurant"/>
+        GROUP BY
+        TOPNAME
+        <if test="queryType == 3">
+            ,DPTNAME
+        </if>
+        <if test="queryType == 4">
+            , DPTNAME , WINNAME
+        </if>
+        )aa
+    </select>
+
+    <!--消费类目明细：购物，用电，用水等-->
+    <select id="getShopConsumeDetail" parameterType="com.ziyun.consume.vo.Params" resultType="java.util.Map">
+        SELECT
+        dptname,
+        sum("sums") AS "sums",
+        sum("total_consume_num") AS "total_consume_num",
+        sum("total_person_num") AS "total_person_num",
+        round(
+        sum("sums") / sum("total_consume_num"),
+        2
+        ) AS "avg_consume_money",
+        round(
+        sum("sums") / sum("total_person_num"),
+        2
+        ) AS "avg_person_money"
+        FROM
+        (
+        SELECT
+        m.dptname,
+        round(SUM(b.opfare) / 100.0, 2) AS "sums",
+        count(b.outid) AS "total_consume_num",
+        count(DISTINCT b.outid) AS "total_person_num",
+        round(
+        SUM(b.opfare) / count(b.outid) / 100.0,
+        2
+        ) AS "avg_consume_money",
+        round(
+        SUM(b.opfare) / count(DISTINCT b.outid) / 100.0,
+        2
+        ) AS "avg_person_money"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN own_org_student_type t ON b.outid = t.outid
+        LEFT JOIN v_dept_term m ON b.termid = m.termid
+        WHERE
+        1 = 1
+        <if test="queryType == 5">
+            <!-- 购物 -->
+            and b.class_code1 =215
+        </if>
+        <if test="queryType == 6">
+            <!-- 购用水 -->
+            and b.class_code1 =222
+        </if>
+        <if test="queryType == 7">
+            <!-- 用电 -->
+            and b.class_code1 =216
+        </if>
+
+        <if test="queryType == 8">
+            <!-- 其他 -->
+            and b.class_code1 NOT IN (210,215,216,222,800)
+        </if>
+
+        <include refid="Base_where_List"/>
+        GROUP BY
+        m.dptname,
+        class_code1
+        ORDER BY
+        cast(SUM(b.opfare) AS FLOAT) DESC
+        )
+        GROUP BY
+        dptname
+        order BY
+        <if test="sort == 'sums'">
+            cast( "sums" as float)
+        </if>
+        <if test="sort == 'total_consume_num'">
+            cast("total_consume_num" as float)
+        </if>
+        <if test="sort == 'total_person_num'">
+            cast ("total_person_num" as float)
+        </if>
+        <if test="sort == 'avg_consume_money'">
+            cast ("avg_consume_money" as float )
+        </if>
+        <if test="sort == 'avg_person_money'">
+            cast("avg_person_money" as float)
+        </if>
+        <if test="sort == null ">
+            cast( "sums" as float)
+        </if>
+        <include refid="base_order"/>
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getShopConsumeDetailCount" parameterType="com.ziyun.consume.vo.Params"
+            resultType="java.lang.Integer">
+        select count(1) as num from (SELECT
+        dptname,
+        sum("sums") AS "sums",
+        sum("total_consume_num") AS "total_consume_num",
+        sum("total_person_num") AS "total_person_num",
+        round(
+        sum("sums") / sum("total_consume_num"),
+        2
+        ) AS "avg_consume_money",
+        round(
+        sum("sums") / sum("total_person_num"),
+        2
+        ) AS "avg_person_money"
+        FROM
+        (
+        SELECT
+        m.dptname,
+        round(SUM(b.opfare) / 100.0, 2) AS "sums",
+        count(b.outid) AS "total_consume_num",
+        count(DISTINCT b.outid) AS "total_person_num",
+        round(
+        SUM(b.opfare) / count(b.outid) / 100.0,
+        2
+        ) AS "avg_consume_money",
+        round(
+        SUM(b.opfare) / count(DISTINCT b.outid) / 100.0,
+        2
+        ) AS "avg_person_money"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN own_org_student_type t ON b.outid = t.outid
+        LEFT JOIN v_dept_term m ON b.termid = m.termid
+        WHERE
+        1 = 1
+        <if test="queryType == 5">
+            <!-- 购物 -->
+            and b.class_code1 =215
+        </if>
+        <if test="queryType == 6">
+            <!-- 购用水 -->
+            and b.class_code1 =222
+        </if>
+        <if test="queryType == 7">
+            <!-- 用电 -->
+            and b.class_code1 =216
+        </if>
+
+        <if test="queryType == 8">
+            <!-- 其他 -->
+            and b.class_code1 NOT IN (210,215,216,222,800)
+        </if>
+
+        <include refid="Base_where_List"/>
+        GROUP BY
+        m.dptname,
+        class_code1
+        ORDER BY
+        cast(SUM(b.opfare) AS FLOAT) DESC
+        )
+        GROUP BY
+        dptname
+        )aa
+    </select>
+
+    <!-- 考试费详情-->
+    <select id="getExamConsumeDetail" parameterType="com.ziyun.consume.vo.Params" resultType="java.util.Map">
+        SELECT
+        m.class_name2 ,
+        <if test="queryType == 10">
+            m.class_name3 ,
+        </if>
+        round(SUM(b.opfare)/100.0,2 ) AS "sums" ,
+        count(b.outid) as "total_consume_num" ,
+        count(distinct b.outid) as "total_person_num",
+        round(SUM(b.opfare)/count(b.outid)/100.0,2) as "avg_consume_money",
+        round(SUM(b.opfare)/count(distinct b.outid)/100.0,2) as "avg_person_money"
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode = m.acccode
+        LEFT JOIN own_org_student_type t ON t.outid = b.outid
+        where b.class_code1 =800
+        <include refid="Base_where_List"/>
+        GROUP BY
+        m.class_name2
+        <if test="queryType == 10">
+            , m.class_name3
+        </if>
+        <include refid="base_consumeDetail_sort"/>
+        <include refid="base_order"/>
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getExamConsumeDetailCount" parameterType="com.ziyun.consume.vo.Params"
+            resultType="java.lang.Integer">
+        SELECT count(1) FROM (
+        SELECT
+        m.class_name2
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN m_consume_type m ON b.acccode = m.acccode
+        LEFT JOIN own_org_student_type t ON t.outid = b.outid
+        where b.class_code1 =800
+        <include refid="Base_where_List"/>
+        GROUP BY
+        m.class_name2
+        <if test="queryType == 10">
+            , m.class_name3
+        </if>
+        )aa
+    </select>
+
+    <!--消费类目明细 ，查询餐费的所有餐饮-->
+    <select id="getConsumeDptNames" parameterType="com.ziyun.consume.vo.Params" resultType="java.lang.String">
+        select dptName AS "dptName",count(distinct winName) as "num" from term_dept_top where topCode in('001','002')
+        group by dptName
+    </select>
+</mapper>

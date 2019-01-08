@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.basic.mapper.UserDefinedMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.basic.entity.SysorgTree">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="org_code" property="orgCode" jdbcType="VARCHAR"/>
+        <result column="org_name" property="orgName" jdbcType="VARCHAR"/>
+        <result column="parent_code" property="parentCode" jdbcType="VARCHAR"/>
+        <result column="org_level" property="orgLevel" jdbcType="INTEGER"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <collection property="sysorgtree" ofType="com.ziyun.basic.entity.SysorgTree" select="getOrgtree"
+                    column="org_code"/>
+    </resultMap>
+
+    <resultMap id="DataAuthResultMap" type="com.ziyun.basic.entity.SysorgTree">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="code" property="orgCode" jdbcType="VARCHAR"/>
+        <result column="name" property="orgName" jdbcType="VARCHAR"/>
+        <result column="parent_id" property="parentCode" jdbcType="BIGINT"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <collection property="sysorgtree" ofType="com.ziyun.basic.entity.SysorgTree" select="getDataAuthTree"
+                    column="{id=id,logonRoleId=logonRoleId,logonIsSuperAdmin=logonIsSuperAdmin}"/>
+    </resultMap>
+
+    <!-- 获得树形数据权限 -->
+    <select id="getDataAuthTree" resultMap="DataAuthResultMap">
+        select t1.*,
+        <choose>
+            <when test="logonIsSuperAdmin == null">
+                null as logonIsSuperAdmin, t2.role_id
+            </when>
+            <otherwise>
+                1 as logonIsSuperAdmin, null
+            </otherwise>
+        </choose>
+        as logonRoleId
+        from auth_data_permission_new t1
+        <if test="logonIsSuperAdmin == null">
+            INNER JOIN auth_role_data_permission t2 on t1.id = t2.data_permission_id
+        </if>
+        where 1 = 1 and t1.parent_id = #{id,jdbcType=BIGINT}
+        <if test="logonIsSuperAdmin == null and logonRoleId != null">
+            and t2.role_id = #{logonRoleId,jdbcType=BIGINT}
+        </if>
+    </select>
+
+    <sql id="Base_Column_List">
+        id, org_code, org_name, parent_code, org_level
+    </sql>
+    <!-- 获得树形组织机构 -->
+    <select id="getOrgtree" parameterType="String" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from sys_org_tree
+        where parent_code = #{id}
+    </select>
+    <select id="getClasscodeByDefined" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        SELECT
+        a.class_code
+        FROM
+        (select
+        t.class_code
+        from own_org_student_type t
+        where 1=1
+        <include refid="Base_where_List"/>
+        <if test="enrollmentYear !=null and enrollmentYear != ''">
+            and t.enrollment_year like concat("%",#{enrollmentYear},"%")
+        </if>
+        ) a
+        GROUP BY a.class_code
+        ORDER BY a.class_code ASC
+    </select>
+
+    <select id="getClasscodeByMajor" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        select
+        t.class_code
+        from
+        own_org_student_type t
+        where 1=1
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+    </select>
+
+    <select id="getClasscodeByStatus" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        SELECT
+        a.class_code
+        FROM
+        (select
+        t.class_code
+        from own_org_student_type t
+        where 1=1
+        <include refid="Base_where_List"/>
+        <if test="eduStatus != null and eduStatus !=''">
+            AND t.edu_status LIKE concat("%",#{eduStatus},"%")
+        </if>
+        ) a
+        GROUP BY a.class_code
+        ORDER BY a.class_code ASC
+    </select>
+
+    <select id="getClasscodeBySemester" resultType="java.lang.String" parameterType="java.lang.Integer">
+        SELECT
+        t.class_code
+        FROM `own_org_student_param` t
+        WHERE t.starttime <![CDATA[<]]> NOW()
+        GROUP BY t.class_code
+        HAVING MAX(term_num) >= #{semester}
+    </select>
+    <select id="getStudentStatus" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        SELECT
+        edu_status
+        FROM `own_org_student_type` t
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        <if test="enrollmentYear !=null and enrollmentYear != ''">
+            and enrollment_year like concat("%",#{enrollmentYear},"%")
+        </if>
+        GROUP BY t.edu_status
+    </select>
+
+    <select id="getTotalSemester" parameterType="java.lang.String" resultType="int">
+        select
+        count(*)
+        from term_time_dict t
+        where t.termtype=1
+        and left(t.semester, 4) >=#{year}
+        and starttime <![CDATA[<]]> now()
+        order by t.starttime
+    </select>
+    <select id="getMaybeSemesterByYear" parameterType="java.lang.String" resultType="int">
+        SELECT
+        MAX(term_num)
+        FROM
+        `outid_term_time_dict`
+        WHERE
+        starttime <![CDATA[<]]> NOW()
+        and enrollment_year_2 LIKE concat("%",#{enrollmentYear},"%")
+
+    </select>
+
+    <select id="getYearBySemester" parameterType="java.lang.Integer" resultType="int">
+        select
+        left(t.semester, 4)
+        from
+        term_time_dict t
+        where
+        t.termtype=1
+        and left(t.semester, 4) <![CDATA[<]]> left(NOW(), 4)
+        and t.starttime <![CDATA[<]]>NOW()
+        order by
+        t.starttime
+        desc LIMIT #{termNum},1
+    </select>
+
+    <select id="getYearByMaxSemester" parameterType="java.lang.Integer" resultType="java.lang.String">
+        SELECT
+        enrollment_year_2
+        FROM
+        (SELECT
+        max(term_num) as num,enrollment_year_2
+        FROM `outid_term_time_dict`
+        WHERE starttime <![CDATA[<]]>NOW()
+        GROUP BY enrollment_year_2
+        )a
+        WHERE
+        a.num > #{termNum}
+
+    </select>
+
+    <select id="getMaxSemesterByClasscode" parameterType="com.ziyun.basic.vo.Params" resultType="int">
+        SELECT
+        MAX(term_num)
+        FROM `own_org_student_param` t
+        WHERE t.starttime <![CDATA[<]]> NOW()
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="getStatusByClasscode" parameterType="com.ziyun.basic.vo.Params" resultType="java.lang.String">
+        SELECT
+        edu_status
+        FROM `own_org_student_type` t
+        WHERE 1=1
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        GROUP BY edu_status
+    </select>
+
+    <!--查询入学年份，返回给前端-->
+    <select id="getEnrollmentYear" resultType="Map">
+        SELECT DISTINCT
+        enrollment_year
+        FROM
+        own_org_student_type
+        WHERE enrollment_year <![CDATA[ > ]]> 2012
+        ORDER BY
+        enrollment_year DESC
+    </select>
+
+    <select id="getOwnYearByClasscode" parameterType="com.ziyun.basic.vo.Params" resultType="String">
+        SELECT
+        t.enrollment_year
+        FROM
+        `own_org_student_type` t
+        WHERE 1=1
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        GROUP BY t.enrollment_year
+    </select>
+    <sql id="Base_where_List">
+
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and t.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null"> and t.class_code = #{classCode,jdbcType=VARCHAR}
+            </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and t.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+    </sql>
+</mapper>

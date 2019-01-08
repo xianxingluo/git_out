@@ -1,0 +1,806 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.report.mapper.ReportMapper">
+    <resultMap id="StudentResultMap" type="com.ziyun.report.model.Student">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <resultMap id="LabelResultMap" type="com.ziyun.report.model.GraduateLabel">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="label" property="label" jdbcType="VARCHAR"/>
+        <result column="describe" property="describe" jdbcType="VARCHAR"/>
+        <result column="detail" property="detail" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <resultMap id="EndingsResultMap" type="com.ziyun.report.model.GraduateEndings">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="endings" property="endings" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <resultMap id="visitsResultMap" type="com.ziyun.report.model.GraduateVisits">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="visits" property="visits" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <!--学业特征  专业排名大于前百分只二十-->
+    <select id="avgCreditPointRanking" parameterType="java.lang.String" resultType="java.math.BigDecimal">
+        SELECT
+        ROUND(m.num * 100 / k.totalNum, 0)
+        FROM
+        (
+        SELECT
+        COUNT(1) AS num,
+        major_code
+        FROM
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        ) AS personAvgPoint,
+        major_code,
+        outid
+        FROM
+        edu_grade_credit_r eg
+        WHERE
+        1 = 1
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        AND eg.course_name NOT IN (
+        '体育1',
+        '体育2',
+        '体育3',
+        '体育4'
+        )
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND left(eg.class_code,2)= RIGHT(year(date_add(NOW(), interval -4 year)),2)
+        AND major_code = (
+        SELECT
+        major_code
+        FROM
+        own_org_student_type
+        WHERE
+        outid = #{outid}
+        )
+        GROUP BY
+        eg.outid
+        ) a
+        WHERE
+        a.personAvgPoint <![CDATA[ < ]]>(
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        )
+        FROM
+        edu_grade_credit_r eg
+        WHERE
+        1 = 1
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        AND eg.course_name NOT IN (
+        '体育1',
+        '体育2',
+        '体育3',
+        '体育4'
+        )
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND eg.outid = #{outid}
+        )
+        ) m,
+        (
+        SELECT
+        count(1) AS totalNum
+        FROM
+        (
+        SELECT
+        ROUND(
+        sum(credit * point) / sum(credit),
+        2
+        ) AS personAvgPoint,
+        major_code
+        FROM
+        edu_grade_credit_r eg
+        WHERE
+        1 = 1
+        AND eg.credit > 0
+        AND eg.course_name NOT LIKE '%普通话%'
+        AND eg.course_name NOT IN (
+        '体育1',
+        '体育2',
+        '体育3',
+        '体育4'
+        )
+        AND substring(eg.course_no, 4, 1) != "9"
+        AND eg.is_grade_exam = 0
+        AND left(eg.class_code,2)= RIGHT(year(date_add(NOW(), interval -4 year)),2)
+        AND major_code = (
+        SELECT
+        major_code
+        FROM
+        own_org_student_type
+        WHERE
+        outid = #{outid}
+        )
+        GROUP BY
+        outid
+        ) b
+        ) k
+    </select>
+
+    <!-- 根据学号查询获奖次数-->
+    <select id="getScholarshipNums" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT
+        COUNT(t.outid)
+        FROM
+        edu_scholarship edu
+        INNER JOIN own_org_student_type t ON edu.outid = t.outid
+        WHERE
+        t.outid = #{outid}
+    </select>
+
+    <!--根据学号，查询借阅书的数量-->
+    <select id="getBorrowNums" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT
+        count(1)
+        FROM
+        edu_borrow_param p
+        INNER JOIN own_org_student_type t ON p.outid = t.outid
+
+        WHERE t.outid=#{outid}
+    </select>
+
+    <!-- 查询应届毕业生列表 -->
+    <select id="getGraduate" resultMap="StudentResultMap">
+        select
+        t.id,
+        t.outid,
+        t.NAME,
+        t.sex,
+        t.major_code,
+        t.class_code
+        from own_org_student_type t
+        where LEFT(t.class_code,2) = RIGHT(year(date_add(NOW(), interval -4 year)),2)
+    </select>
+
+    <!-- 根据学号查询学生信息 -->
+    <select id="queryStudentByoutid" parameterType="java.lang.String" resultMap="StudentResultMap">
+        select
+        t.id,
+        t.outid,
+        t.NAME,
+        t.sex,
+        t.major_code,
+        t.class_code
+        from own_org_student_type t
+        where t.outid = #{outid}
+    </select>
+
+    <!-- 根据学号查询上网时长 -->
+    <select id="onlineDuration" parameterType="java.lang.String" resultType="java.lang.Long">
+        SELECT
+        SUM(r.acctsessiontime) total_duration
+        FROM radacct_time r
+        INNER JOIN own_org_student_type s ON r.outid = s.outid
+        WHERE s.outid = #{outid}
+    </select>
+
+    <!-- 查询上网时长排名 -->
+    <select id="onlineDurationTop" parameterType="com.ziyun.report.model.Param" resultType="java.lang.Integer">
+        SELECT
+        100 - ROUND(
+        SUM(CASE WHEN t.total_duration <![CDATA[ >= ]]> '${duration}' THEN 1 END) * 100.0 /
+        (
+        SELECT count(*) FROM own_org_student_type t
+        WHERE 1 = 1
+        <if test="grade != null and grade != ''">
+            and substring(t.class_code,1,2) = '${grade}'
+        </if>
+        <if test="classCodes != null and classCodes.length > 0">
+            and t.class_code in
+            <foreach collection="classCodes" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        )
+        ,0) as ratio
+        FROM
+        (
+        SELECT b.outid,
+        SUM(b.acctsessiontime) total_duration
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        WHERE 1 = 1
+        <if test="grade != null and grade != ''">
+            and substring(c.class_code,1,2) = '${grade}'
+        </if>
+        <if test="classCodes != null and classCodes.length > 0">
+            and c.class_code in
+            <foreach collection="classCodes" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        GROUP BY b.outid
+        )t
+    </select>
+
+    <!-- 根据学号查询学生标签 -->
+    <select id="queryGraduateLabel" parameterType="java.lang.String" resultMap="LabelResultMap">
+        SELECT
+        t.id,
+        t.outid,
+        t.label,
+        t.describe,
+        t.detail
+        FROM graduate_label t
+        WHERE t.outid = #{outid}
+    </select>
+
+    <!-- 根据学号查询上网时长和上网天数-->
+    <select id="queryOnlineTime" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        sum(total_duration) AS "total_duration",
+        count(num) AS "day_num"
+        FROM
+        (
+        SELECT
+        b.acctstarttime,
+        SUM(b.acctsessiontime) AS total_duration,
+        COUNT(DISTINCT(b.outid)) AS num
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        WHERE
+        b.outid = #{outid}
+        GROUP BY b.acctstarttime
+        ) a
+    </select>
+
+    <!-- 根据学号查询获奖情况-->
+    <select id="queryPrizeInfo" parameterType="java.lang.String" resultType="java.util.Map">
+        select t.type,count(1) prize_num,SUM(t.amount) amount
+        from edu_scholarship t
+        where t.outid = #{outid}
+        GROUP BY t.type
+    </select>
+
+    <!-- 增加毕业生标签 -->
+    <insert id="addGraduateLabel" parameterType="com.ziyun.report.model.GraduateLabel">
+        insert into graduate_label
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="outid != null and outid != ''">
+                outid,
+            </if>
+            <if test="label != null and label != ''">
+                label,
+            </if>
+            <if test="describe != null and describe != ''">
+                `describe`,
+            </if>
+            <if test="detail != null and detail != ''">
+                detail,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="outid != null and outid != ''">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="label != null and label != ''">
+                #{label,jdbcType=VARCHAR},
+            </if>
+            <if test="describe != null and describe != ''">
+                #{describe,jdbcType=VARCHAR},
+            </if>
+            <if test="detail != null and detail != ''">
+                #{detail,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+
+    <!-- 根据学号查询学生标签 -->
+    <select id="queryGraduateEndings" parameterType="java.lang.String" resultMap="EndingsResultMap">
+        SELECT
+        t.id,
+        t.outid,
+        t.endings
+        FROM graduate_endings t
+        WHERE t.outid = #{outid}
+    </select>
+
+    <!-- 查询借阅百分比排名 -->
+    <select id="queryBorrowTop" parameterType="java.lang.String" resultType="java.lang.Integer">
+        SELECT
+        100 - ROUND(
+        SUM(CASE WHEN t.borrow_num <![CDATA[ >= ]]> (
+        SELECT count(1)
+        FROM edu_borrow_param p
+        LEFT JOIN own_org_student_type t ON p.outid = t.outid
+        WHERE t.outid=#{outid}
+        ) THEN 1 END) /
+        (
+        SELECT COUNT(1) FROM own_org_student_type t
+        WHERE LEFT(t.class_code,2) = #{grade}
+        AND t.major_code = #{majorCode}
+        )
+        ,2) * 100 as borrow_ratio
+        FROM
+        (
+        SELECT
+        t.outid,count(1) borrow_num
+        FROM
+        edu_borrow_param p
+        LEFT JOIN own_org_student_type t ON p.outid = t.outid
+        WHERE substring(t.class_code,1,2) = #{grade}
+        AND t.major_code = #{majorCode}
+        GROUP BY t.outid
+        ) t
+    </select>
+
+    <!-- 根据学号查询处分次数 -->
+    <select id="queryPunishNums" parameterType="java.lang.String" resultType="java.lang.Integer">
+        select count(s.outid)
+        from edu_punish e
+        LEFT JOIN own_org_student_type s on e.outid = s.outid
+        where s.outid = #{outid}
+    </select>
+
+    <!-- 增加结尾寄语 -->
+    <insert id="addGraduateEndings" parameterType="com.ziyun.report.model.GraduateLabel">
+        insert into graduate_endings
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="outid != null and outid != ''">
+                outid,
+            </if>
+            <if test="endings != null and endings != ''">
+                endings,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="outid != null and outid != ''">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="endings != null and endings != ''">
+                #{endings,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+
+    <!-- 根据学号查询PU积分-->
+    <select id="queryPuIntegral" parameterType="java.lang.String" resultType="java.util.Map">
+        select a.integration,a.credit
+        from outid_credit_integration_jkd_all a
+        LEFT JOIN own_org_student_type b on a.outid = b.outid
+        where b.outid = #{outid}
+    </select>
+
+    <!-- 根据学号担任职位-->
+    <select id="queryPosition" parameterType="java.lang.String" resultType="java.lang.String">
+        select a.position from presidium_cadre_temp a
+        LEFT JOIN own_org_student_type b on a.outid = b.outid
+        where b.outid = #{outid}
+    </select>
+
+    <!-- 查询宿舍内时长百分比排名 -->
+    <select id="dormDurationTop" parameterType="java.util.Map" resultType="java.lang.Integer">
+        SELECT
+        100 - ROUND(
+        SUM(CASE WHEN t.duration <![CDATA[ >= ]]> (
+        select SUM(TIMESTAMPDIFF(second,a.indate,a.outdate)) duration
+        from access_record_inout_temp a
+        LEFT JOIN own_org_student_type b on a.outid = b.outid
+        WHERE b.outid = #{outid}
+        ) THEN 1 END) /
+        (
+        SELECT COUNT(1) FROM own_org_student_type t
+        WHERE LEFT(t.class_code,2) = #{grade}
+        AND t.major_code = #{majorCode}
+        )
+        ,2) * 100 as ratio
+        FROM
+        (
+        select a.outid,SUM(TIMESTAMPDIFF(second,a.indate,a.outdate)) duration
+        from access_record_inout_temp a
+        LEFT JOIN own_org_student_type b on a.outid = b.outid
+        WHERE LEFT(b.class_code,2) = #{grade}
+        AND b.major_code = #{majorCode}
+        GROUP BY a.outid
+        )t
+    </select>
+
+    <!-- 根据积分查询积分排名 -->
+    <select id="queryPuIntegralTop" parameterType="java.lang.Float" resultType="java.lang.Integer">
+        select
+        100 - ROUND(count(1)/(select count(1) from own_org_student_type t where LEFT(t.class_code,2) = RIGHT
+        (year(date_add(NOW(), interval -4 year)),2)),2) * 100
+        from outid_credit_integration_jkd_all a
+        LEFT JOIN own_org_student_type b on a.outid = b.outid
+        WHERE LEFT(b.class_code,2) = RIGHT(year(date_add(NOW(), interval -4 year)),2)
+        AND a.integration >= #{integration}
+    </select>
+
+    <!-- 根据学号查询上网时长 -->
+    <select id="gameDuration" parameterType="java.lang.String" resultType="java.lang.Long">
+        SELECT sum(f.seconds) total_duration
+        FROM FLUX_TIMECOUNT_ACTION f
+        INNER JOIN OWN_ORG_STUDENT_TYPE o ON f.outid = o.outid
+        WHERE f.serv = '游戏'
+        AND f.outid = #{outid}
+    </select>
+
+    <!-- 查询游戏时长排名 -->
+    <select id="gameDurationTop" parameterType="com.ziyun.report.model.Param" resultType="java.lang.Integer">
+        SELECT
+        100 - ROUND(
+        SUM(CASE WHEN a.s >= '${duration}' THEN 1 END) * 100.0 /
+        (
+        SELECT COUNT(1) FROM own_org_student_type t
+        WHERE 1 = 1
+        <if test="grade != null and grade != ''">
+            and substring(t.class_code,1,2) = '${grade}'
+        </if>
+        <if test="classCodes != null and classCodes.length > 0">
+            and t.class_code in
+            <foreach collection="classCodes" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        )
+        ,0) as ratio
+        FROM
+        (
+        SELECT sum(seconds) s
+        FROM FLUX_TIMECOUNT_ACTION f
+        INNER JOIN OWN_ORG_STUDENT_TYPE o ON f.outid = o.outid
+        WHERE f.serv = '游戏'
+        <if test="grade != null and grade != ''">
+            AND substring(o.class_code, 1, 2) = '${grade}'
+        </if>
+        <if test="classCodes != null and classCodes.length > 0">
+            and o.class_code in
+            <foreach collection="classCodes" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        GROUP BY f.outid
+        )a
+    </select>
+
+    <!-- 根据条件：查询,获取班级的全部信息 -->
+    <select id="queryClassByMajor" resultType="java.lang.String" parameterType="java.lang.String">
+        select
+        t.class_code
+        from own_school_org t
+        where 1=1
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null and majorCode != ''">
+            and t.major_code = #{majorCode}
+        </if>
+    </select>
+
+    <!-- -->
+    <select id="getAcademicCourse" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        count( course_no) AS num,
+
+        course_properties_person
+        FROM
+        edu_grade_filter_r
+        WHERE
+        course_properties_person IS NOT NULL
+        AND outid=#{outid}
+        AND is_grade_exam=0
+        GROUP BY
+        course_properties_person
+    </select>
+
+    <!--获取个人学业课程成绩合格率-->
+    <select id="getPassRations" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT
+        round(a.onepass / b.times, 2)* 100 AS ratio
+        FROM
+        (
+        SELECT
+        count(*) AS onepass,
+        eg.outid
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        eg.exam_natures = '正常考试'
+        AND eg.course_properties_person IS NOT NULL
+        AND eg.point >= 1
+        AND eg.is_grade_exam = 0
+        AND eg.outid = #{outid}
+        ) AS a,
+        (
+        SELECT
+        count(*) AS times,
+        eg.outid
+        FROM
+        edu_grade_filter_r eg
+        WHERE
+        eg.course_properties_person IS NOT NULL
+        AND eg.is_grade_exam = 0
+        AND eg.outid = #{outid}
+        ) AS b
+        WHERE
+        a.outid = b.outid
+        AND b.times > 0
+    </select>
+
+    <!-- 获取该学生最高分的课程-->
+    <select id="getHighScore" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        score_new,
+        teacher,
+        course_name
+        FROM
+        edu_grade_filter_r
+        WHERE
+        outid = #{outid}
+        AND is_grade_exam = 0
+        AND course_properties_person = '必修'
+        AND teacher !=''
+        AND teacher !='系统管理员'
+    </select>
+
+
+    <!-- 毕业报告，个人消费总金额-->
+    <select id="getTotalConsumes" parameterType="java.lang.String" resultType="java.math.BigDecimal">
+        SELECT
+        SUM(b.opfare) AS sums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t ON b.OUTID = t.OUTID
+        WHERE
+
+        b.outid =#{outid}
+    </select>
+
+    <!-- 毕业报告  查询个人经常去那个窗口消费，消费了多少次-->
+    <select id="consumeHobby" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        m.dptname AS name,
+        count(b.outid) AS nums
+        FROM
+        m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t ON b.OUTID = t.OUTID
+        LEFT JOIN v_dept_term m ON b.termid = m.termid
+        WHERE
+        b.outid = #{outid}
+        and b.class_code1=210
+        GROUP BY
+        m.dptname
+        ORDER BY
+        nums DESC
+        LIMIT 1 OFFSET 0
+    </select>
+
+    <!-- 毕业报告，消费类目百分比-->
+    <select id="preferenceListNot" resultType="java.util.Map"
+            parameterType="java.lang.String">
+        SELECT b.acccode, SUM(b.opfare) AS opfare
+        FROM m_rec_consume_copy b
+        LEFT JOIN OWN_ORG_STUDENT_TYPE t
+        ON b.OUTID = t.OUTID
+        WHERE
+        1=1
+        and b.outid=#{outid}
+        GROUP BY b.acccode
+        ORDER BY opfare DESC
+    </select>
+
+    <!-- 毕业报告 根据消费编号acccode 查询消费类型名称 例如：消费-->
+    <select id="getConsumeTypeByAcccode" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT
+        class_name
+        FROM
+        m_consume_type
+        WHERE
+        acccode = #{outid}
+    </select>
+    <!-- 毕业报告 借阅模块 统计该学生一共借了多少本书，一共借阅了多少天-->
+    <select id="getBorrowDaysAndBookNums" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        IFNULL(
+        ROUND(
+        sum(
+        TIMESTAMPDIFF(
+        MINUTE,
+        BORROW_DATE,
+        IFNULL(RETURN_DATE, NOW())
+        ) / 60 / 24
+        ),
+        0
+        ) ,0)AS days,
+        COUNT(1) AS bookNums
+        FROM
+        edu_borrow_param t
+        WHERE
+        t.role = 1
+        AND t.CLC_NO IS NOT NULL
+        AND t.outid = #{outid}
+    </select>
+
+    <!--毕业报告 借阅模块 统计该学生借书时间最长的图书-->
+    <select id="getBestLikeBook" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT
+        ROUND(
+        sum(
+        TIMESTAMPDIFF(
+        MINUTE,
+        BORROW_DATE,
+        IFNULL(RETURN_DATE, NOW())
+        ) / 60 / 24
+        ),
+        0
+        )as day,BOOK_NAME
+        FROM
+        edu_borrow_param t
+        WHERE
+        t.role = 1
+        AND t.CLC_NO IS NOT NULL
+        AND t.outid = #{outid}
+        GROUP BY BOOK_NAME
+
+        ORDER BY day desc
+        LIMIT 1
+    </select>
+
+
+    <!-- 获取该学生最喜欢的图书分类-->
+    <select id="bookLikeType" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT
+        shortname
+        FROM
+        book_type
+        WHERE
+        CODE = (
+        SELECT
+        LEFT (p.CLC_NO, 1) AS 'name'
+        FROM
+        edu_borrow_param p
+        WHERE
+        p.role = 1
+        AND p.CLC_NO IS NOT NULL
+        AND p.outid = #{outid}
+        GROUP BY
+        BOOK_NO
+        ORDER BY
+        ROUND(
+        sum(
+        TIMESTAMPDIFF(
+        MINUTE,
+        BORROW_DATE,
+        IFNULL(RETURN_DATE, NOW())
+        ) / 60 / 24
+        ),
+        0
+        ) DESC
+        LIMIT 1
+        )
+    </select>
+
+    <select id="getBestTimesClass" parameterType="java.lang.String" resultType="java.lang.String">
+        select
+        termname,count(outid)as c
+        from
+        m_rec_kqmj
+        where outid=#{outid}
+        group by termname
+        order by c desc
+        limit 1
+
+    </select>
+
+    <!--查询该学生经常去那个食堂就餐-->
+    <select id="getLikeRestaurant" parameterType="java.lang.String" resultType="java.util.Map">
+        SELECT v.topname AS "topname",COUNT(m.outid) as "nums" FROM
+        m_rec_consume_copy m LEFT JOIN v_dept_term v ON m.termid=v.termid
+        WHERE m.outid=#{outid} and v.topcode in('001','002')
+
+        GROUP BY v.topname
+
+        ORDER BY COUNT(m.outid) desc
+
+        limit 1
+    </select>
+
+    <select id="getStudentSchoolType" parameterType="java.lang.String" resultType="java.lang.String">
+
+        SELECT school_name from own_org_student_type WHERE outid=#{outid}
+    </select>
+
+    <!-- 查询class_code，判断该学生是否是毕业生-->
+    <select id="isGraduationStudent" parameterType="java.lang.String" resultType="java.lang.String">
+        SELECT SUBSTR(class_code,1,2) FROM own_org_student_type WHERE outid=#{outid}
+    </select>
+
+    <!-- 根据学号查询毕业报告访问次数-->
+    <select id="queryVisitsByOutid" parameterType="java.lang.String" resultMap="visitsResultMap">
+        SELECT id,outid,visits FROM graduate_visits WHERE outid=#{outid}
+    </select>
+
+    <!-- 新增毕业报告访问次数记录-->
+    <insert id="addGraduateVisits" parameterType="com.ziyun.report.model.GraduateVisits">
+        insert into graduate_visits
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="outid != null and outid != ''">
+                outid,
+            </if>
+            <if test="visits != null">
+                visits,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="updateTime != null">
+                update_time,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=INTEGER},
+            </if>
+            <if test="outid != null and outid != ''">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="visits != null">
+                #{visits,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updateTime != null">
+                #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+    <!-- 毕业报告访问次数+1-->
+    <update id="visitsIncrease" parameterType="com.ziyun.report.model.GraduateVisits">
+        update graduate_visits set
+        <if test="visits != null">
+            visits = #{visits,jdbcType=INTEGER},
+        </if>
+        <if test="updateTime != null">
+            update_time = #{updateTime,jdbcType=TIMESTAMP}
+        </if>
+        where id = #{id}
+    </update>
+
+    <!-- 根据学号查询学生会会长信息-->
+    <select id="getAssociationOfStudent" parameterType="java.lang.String" resultType="java.util.Map">
+        select position,reviews from student_council_reviews a
+        INNER JOIN own_org_student_type b on a.outid = b.outid
+        where a.outid = #{outid}
+    </select>
+</mapper>

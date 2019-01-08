@@ -1,0 +1,655 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.academic.dao.EarlyWarningRDao">
+
+    <sql id="Base_Column_List_academic">
+        DISTINCT outid,
+        NAME as "name",
+        faculty_name,
+        major_name,
+        class_code,
+        age,
+        gender,
+        fail_requiredcourse_sum AS "fail_course_num",
+        admission_date,
+        native_place
+    </sql>
+
+    <sql id="Base_Column_List">
+        outid, name, school_name, major_name, class_code, gender, age, source_location, admission_date,
+        fail_course_sum, course_sum, avg_credit_point, spend_sum, net_time_sum, dorm_time_sum
+    </sql>
+    <!--学业预警-->
+    <select id="listAcademicWarningStudents" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        <include refid="Base_Column_List_academic"/>
+        FROM early_warning_academic_student
+        WHERE ${warnRule}
+        <include refid="Base_where_List_academic"/>
+        ORDER BY outid DESC
+        <include refid="Paging"/>
+    </select>
+
+    <select id="listWarningStudents" resultType="Map" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM early_warning_r
+        WHERE 1=1 ${warnRule}
+        <include refid="Base_where_List"/>
+        <include refid="Paging"/>
+    </select>
+
+    <select id="countAcademicWarningStudents" resultType="java.lang.Integer"
+            parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        count(DISTINCT outid)
+        FROM early_warning_academic_student
+        WHERE ${warnRule}
+        <include refid="Base_where_List_academic"/>
+    </select>
+
+    <select id="countWarningStudents" resultType="java.lang.Integer" parameterType="com.ziyun.academic.vo.Params">
+        SELECT
+        count(*)
+        FROM early_warning_r
+        WHERE 1=1 ${warnRule}
+        <include refid="Base_where_List"/>
+    </select>
+
+
+    <select id="getEarlyWarnParamShow" resultType="map">
+        SELECT
+        id,
+        warn_name name,
+        min_number min,
+        max_number max,
+        remark
+        FROM
+        early_warning
+        ORDER BY id desc
+    </select>
+    <select id="getEarlyWarnRules" resultType="map" parameterType="map">
+        SELECT
+        id,
+        warn_name as rulename,
+        warn_detail as detail,
+        CONVERT(update_time,char) as time,
+        warn_param as param
+        FROM `early_warning_rule`
+        WHERE user_name = #{username}
+        <if test="warnName != null and  warnName !=''">and warn_name like concat('%',#{warnName},'%')</if>
+        <if test="edate != null and edate != ''">and update_time <![CDATA[ < ]]>  #{edate}</if>
+        <if test="bdate != null and bdate != '' ">and update_time <![CDATA[ >= ]]>  #{bdate}</if>
+        ORDER BY id DESC
+
+    </select>
+
+    <select id="getAcademicEarlyWarnRules" resultType="map" parameterType="map">
+        SELECT
+        id,
+        warn_name as rulename,
+        warn_detail as detail,
+        CONVERT(update_time,char) as time,
+        warn_param as param,
+        organ_name,
+        semesterArr,
+        screen_rule
+        FROM `early_warning_rule`
+        WHERE user_id = #{userId}
+        and warn_flag = #{warnFlag}
+        <if test="warnName != null and  warnName !=''">and warn_name like concat('%',#{warnName},'%')</if>
+        <if test="edate != null and edate != ''">and update_time <![CDATA[ < ]]>  #{edate}</if>
+        <if test="bdate != null and bdate != '' ">and update_time <![CDATA[ >= ]]>  #{bdate}</if>
+        ORDER BY update_time DESC
+
+    </select>
+
+    <select id="selectTotalResult" resultType="java.lang.Double" parameterType="com.ziyun.academic.vo.NetParams">
+        SELECT ${columnName}
+        FROM early_warning_r r
+        WHERE r.outid = #{outid}
+    </select>
+
+    <insert id="addAcademicWarnRule" parameterType="map">
+        INSERT INTO early_warning_rule
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null and userId !=''">
+                user_id,
+            </if>
+            <if test="warnName != null and warnName !=''">
+                warn_name,
+            </if>
+            <if test="warnParam != null and warnParam !=''">
+                warn_param,
+            </if>
+            <if test="organName != null and organName != ''">
+                organ_name,
+            </if>
+            <if test="semesterArr !=null and semesterArr !=''">
+                semesterArr,
+            </if>
+            <if test="warnDetail != null and warnDetail !=null">
+                warn_detail,
+            </if>
+            <if test="warnLevel !=null and warnLevel != ''">
+                warn_level,
+            </if>
+            <if test="warnFlag !=null and warnFlag !=''">
+                warn_flag,
+            </if>
+            <if test="screenRule !=null and screenRule != ''">
+                screen_rule,
+            </if>
+            <if test="warnRule !=null and warnRule!='' ">
+                warn_rule,
+            </if>
+            create_time
+        </trim>
+        VALUES
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null and userId !=''">
+                #{userId},
+            </if>
+            <if test="warnName != null and warnName !=''">
+                #{warnName},
+            </if>
+            <if test="warnParam != null and warnParam !=''">
+                #{warnParam},
+            </if>
+            <if test="organName != null and organName != ''">
+                #{organName},
+            </if>
+            <if test="semesterArr !=null and semesterArr !=''">
+                #{semesterArr},
+            </if>
+            <if test="warnDetail != null and warnDetail !=null">
+                #{warnDetail},
+            </if>
+            <if test="warnLevel !=null and warnLevel != ''">
+                #{warnLevel},
+            </if>
+            <if test="warnFlag !=null and warnFlag !=''">
+                #{warnFlag},
+            </if>
+            <if test="screenRule !=null and screenRule != ''">
+                #{screenRule},
+            </if>
+            <if test="warnRule !=null and warnRule!='' ">
+                #{ warnRule},
+            </if>
+            now()
+        </trim>
+    </insert>
+
+    <insert id="addWarnRule" parameterType="map">
+        INSERT INTO early_warning_rule
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="username != null">
+                user_name,
+            </if>
+            <if test="title != null">
+                warn_name,
+            </if>
+            <if test="show != null">
+                warn_detail,
+            </if>
+            <if test="param != null">
+                warn_param,
+            </if>
+            create_time
+        </trim>
+        VALUES
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="username != null">
+                #{username},
+            </if>
+            <if test="title != null">
+                #{title},
+            </if>
+            <if test="show != null">
+                #{show},
+            </if>
+            <if test="param != null">
+                #{param},
+            </if>
+            now()
+        </trim>
+    </insert>
+
+    <delete id="delAcademicWarnRules" parameterType="com.ziyun.academic.vo.ParamsStatus">
+        DELETE
+        FROM
+        early_warning_rule
+        WHERE id IN
+        <foreach collection="id" item="item" index="index"
+                 open="(" close=")" separator=",">
+            #{item}
+        </foreach>
+        AND user_id = #{base}
+    </delete>
+
+    <delete id="delWarnRules" parameterType="com.ziyun.academic.vo.ParamsStatus">
+        DELETE
+        FROM
+        early_warning_rule
+        WHERE id IN
+        <foreach collection="id" item="item" index="index"
+                 open="(" close=")" separator=",">
+            #{item}
+        </foreach>
+        AND user_name = #{base}
+    </delete>
+
+    <select id="getAcademicWarnRule" resultType="java.util.Map" parameterType="java.lang.String">
+        SELECT
+        warn_rule,
+        screen_rule
+        FROM `early_warning_rule`
+        WHERE id = #{id}
+    </select>
+
+    <select id="getWarnRule" resultType="java.lang.String" parameterType="java.lang.String">
+        SELECT
+        warn_param
+        FROM `early_warning_rule`
+        WHERE id = #{id}
+    </select>
+    <sql id="Paging">
+        <if test="start!=null">
+            limit #{start,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <sql id="Base_where_List_academic">
+        <trim prefixOverrides="and">
+            <if test="classCode != null and classCode.length > 0">
+                and class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+            <if test="semesterArr !=null and semesterArr.length >0 ">
+                and semester in
+                <foreach collection="semesterArr" item="semester" open="(" close=")" separator=",">
+                    #{semester}
+                </foreach>
+
+            </if>
+        </trim>
+    </sql>
+
+    <update id="updateWarnRules" parameterType="map">
+        UPDATE early_warning_rule
+        <trim prefix="set" suffixOverrides=",">
+            <if test="warnName != null and warnName !=''">
+                warn_name = #{warnName},
+            </if>
+            <if test="warnParam != null and warnParam !=''">
+                warn_param = #{warnParam},
+            </if>
+            <if test="organName != null ">
+                organ_name = #{organName},
+            </if>
+            <if test="semesterArr !=null and semesterArr !=''">
+                semesterArr = #{semesterArr},
+            </if>
+            <if test="warnDetail != null and warnDetail !=null">
+                warn_detail = #{warnDetail},
+            </if>
+            <if test="warnLevel !=null and warnLevel != ''">
+                warn_level = #{warnLevel},
+            </if>
+            <if test="warnFlag !=null and warnFlag !=''">
+                warn_flag = #{warnFlag},
+            </if>
+            <if test="screenRule !=null and screenRule != ''">
+                screen_rule = #{screenRule},
+            </if>
+            <if test="warnRule != null and warnRule != '' ">
+                warn_rule = #{warnRule}
+            </if>
+
+        </trim>
+        where id = #{id}
+    </update>
+
+    <select id="earlyNameIsExist" parameterType="map" resultType="string">
+        SELECT warn_name from early_warning_rule WHERE user_id=#{userId} AND warn_name=#{warnName}
+    </select>
+
+    <sql id="Base_where_List">
+        <if test="classCode != null and classCode.length > 0">
+            and class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+    </sql>
+
+    <!-- 获取学期的开始，结束时间-->
+    <select id="getTermTime" parameterType="java.util.Map" resultType="java.util.Map">
+        SELECT starttime,endtime,semester from term_time_dict WHERE termtype=1 ORDER BY semester
+    </select>
+
+    <!-- 疑是离校学生列表-->
+    <select id="doubtfulLevelSchoolList" parameterType="com.ziyun.academic.vo.AcademicParams"
+            resultType="java.util.Map">
+        <!-- sql 的 endDateStr字段说明：表中的endDateStr 只统计离校 日期，例如：今天回校，endDateStr 表示的日期是昨天的日期，endDateStr字段每天都会更新
+         如果endDateStr 等于 last_semester_day 就显示放假中
+          如果endDateStr 小于 DATE_SUB(CURDATE(),INTERVAL 1 day)) 今天-1 表示学生已经回校，回校日期为endDateStr+1
+           如果endDateSt 等于 DATE_SUB(CURDATE(),INTERVAL 1 day)) 表示该学生还未回校 -->
+        SELECT
+        outid,
+        NAME AS "name",
+        faculty_name,
+        major_name,
+        class_code,
+        startDateStr,
+        dayNum,
+        if(DATE(endDateStr) = DATE(last_semester_day),CONCAT( DATE_SUB(DATE(last_semester_day), INTERVAL -1 DAY),"放假中"),
+        CASE
+        WHEN DATE(endDateStr) <![CDATA[ < ]]> DATE((SELECT DATE_SUB(CURDATE(),INTERVAL 1 day))) THEN (SELECT
+        DATE_SUB(DATE(endDateStr), INTERVAL -1 DAY))
+        WHEN DATE(endDateStr) = date((SELECT DATE_SUB(CURDATE(),INTERVAL 1 DAY))) THEN "离校中"
+        END
+        )
+        as endDateStr
+        FROM
+        student_not_in_school ss
+        WHERE 1=1
+        <include refid="DOUBTFUL_LEVEL_SCHOOL_WHERE"/>
+        <include refid="base_sort"/>
+        <include refid="base_order"/>
+        <include refid="base_sort_assistant"/>
+        <include refid="Paging"/>
+    </select>
+
+    <select id="doubtfulLevelSchoolSize" parameterType="com.ziyun.academic.vo.AcademicParams"
+            resultType="java.lang.Integer">
+        SELECT
+        count(1) as num
+        FROM
+        student_not_in_school ss
+        WHERE 1=1
+        AND edu_status LIKE "%1-%"
+        <include refid="DOUBTFUL_LEVEL_SCHOOL_WHERE"/>
+    </select>
+
+    <!--常规预警：消费激增-->
+    <select id="getConsumeIncrease" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="java.util.Map">
+        SELECT
+        ci.outid,
+        ci.`name` AS "name",
+        ci.dayNum,
+        ci.faculty_name,
+        ci.major_name,
+        ci.class_code,
+        detail
+        FROM
+        consume_increase ci
+        WHERE 1=1
+        <include refid="Base_consume_increate"/>
+        <include refid="base_sort"/>
+        <include refid="base_order"/>
+        <include refid="base_sort_assistant"/>
+        <include refid="Paging"/>
+    </select>
+
+    <!--常规预警：消费激增总人数-->
+    <select id="getConsumeIncreaseSize" parameterType="com.ziyun.academic.vo.AcademicParams"
+            resultType="java.lang.Integer">
+        SELECT
+        count(1) AS num
+        FROM
+        consume_increase ci
+        WHERE 1=1
+        <include refid="Base_consume_increate"/>
+    </select>
+
+    <!--消费激增-->
+    <select id="getRadacctIncrease" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="java.util.Map">
+        SELECT
+        ci.outid,
+        ci.`name` AS "name",
+        ci.dayNum,
+        ci.faculty_name,
+        ci.major_name,
+        ci.class_code,
+        detail
+        FROM
+        radacct_increase ci
+        WHERE 1=1
+        <include refid="Base_consume_increate"/>
+        <include refid="base_sort"/>
+        <include refid="base_order"/>
+        <include refid="base_sort_assistant"/>
+        <include refid="Paging"/>
+    </select>
+
+    <!--消费激增总人数-->
+    <select id="getRadacctIncreaseSize" parameterType="com.ziyun.academic.vo.AcademicParams"
+            resultType="java.lang.Integer">
+        SELECT
+        count(1) AS num
+        FROM
+        radacct_increase ci
+        WHERE 1=1
+        <include refid="Base_consume_increate"/>
+    </select>
+
+    <select id="getEarlyList" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        SELECT id,early_name,early_level,early_show,early_desc,early_type,flag from early_warn_rule2 WHERE 1=1 and
+        early_type =#{earlyType}
+        <if test="userId != null and userId != ''">
+            and user_id = #{userId}
+        </if>
+        <if test="earlyLevel !=null and earlyLevel !=''">
+            and early_level = #{earlyLevel}
+        </if>
+        order by
+        <if test="earlyType == 1">
+            early_order desc
+        </if>
+        <if test="earlyType == 3">
+            create_time DESC
+        </if>
+        <include refid="Paging"/>
+    </select>
+
+
+    <select id="getEarlyListCount" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="int">
+        SELECT COUNT(1) AS num from early_warn_rule2 WHERE 1=1 and
+        early_type =#{earlyType}
+        <if test="userId != null and userId != ''">
+            and user_id = #{userId}
+        </if>
+        <if test="earlyLevel !=null and earlyLevel !=''">
+            and early_level = #{earlyLevel}
+        </if>
+    </select>
+
+    <select id="toEditPage" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        select id,warn_desc,warn_param,ifnull(min_num,NULL ) AS min_num,ifnull(max_num ,null) AS max_num from
+        early_warn_param WHERE warn_id = #{id}
+    </select>
+
+    <!--将自定义预警保存到early_warn_rule2-->
+    <insert id="saveEarlyRule" parameterType="com.ziyun.academic.vo.AcademicParams" useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT into early_warn_rule2(user_id,early_name,early_level,early_show,early_desc,early_type,flag) VALUES
+        (#{userId},#{warnName},#{earlyLevel},#{earlyShow},#{warnDesc},3,1)
+    </insert>
+
+    <insert id="saveEarlyParams" parameterType="com.ziyun.academic.entity.EarlyParam">
+   insert into early_warn_param(warn_id,warn_desc,warn_param,min_num,max_num) VALUES  (#{warnId},#{warnDesc},#{warnParam},#{minNum},#{maxNum})
+    </insert>
+    <update id="editEnableStatus" parameterType="com.ziyun.academic.vo.AcademicParams">
+        UPDATE early_warn_rule2 SET flag=#{flag} WHERE 1=1
+        <if test="ids != null and ids .length > 0">
+            and id in
+            <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                #{id}
+            </foreach>
+        </if>
+    </update>
+
+    <select id="findWarnRule" parameterType="long" resultType="map">
+        SELECT warn_param,min_num,max_num from early_warn_param WHERE warn_id = #{id}
+    </select>
+    <!--疑是离校-->
+    <sql id="DOUBTFUL_LEVEL_SCHOOL_WHERE">
+        <if test="startTime != null and startTime !=''">
+            and ss.startDateStr <![CDATA[ >= ]]> #{startTime}
+            and ss.startDateStr <![CDATA[ <= ]]> #{endTime}
+            and ss.endDateStr <![CDATA[ <= ]]> #{endTime}
+        </if>
+        <if test="condition  != null and condition  != ''">
+            and (ss.name like "%${condition}%" or ss.outid like "%${condition}%")
+        </if>
+        <if test="classCode != null and classCode.length > 0">
+            and ss.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+
+    </sql>
+
+    <!--排序-->
+    <sql id="base_order">
+        <if test=" order == 'descending' ">
+            desc
+        </if>
+        <if test=" order == 'ascending' ">
+            asc
+        </if>
+        <if test=" order == null or order == ''">
+            desc
+        </if>
+    </sql>
+    <sql id="base_sort">
+        ORDER BY
+        <if test="sort == 'outid'">
+            outid
+        </if>
+        <if test="sort == 'dayNum'">
+            dayNum
+        </if>
+        <if test="sort == null || sort ==''">
+            outid
+        </if>
+    </sql>
+
+    <sql id="base_sort_assistant">
+        ,name DESC
+    </sql>
+
+    <!--上网激增-->
+    <sql id="Base_consume_increate">
+        <if test="condition  != null and condition  != ''">
+            and (ci.name like "%${condition}%" or ci.outid like "%${condition}%")
+        </if>
+        <if test="classCode != null and classCode.length > 0">
+            and ci.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 学期-->
+        <if test="semester != null and semester != ''">
+            and ci.semester =#{semester}
+        </if>
+        <!-- 学期时间多选-->
+        <if test="semesterArr !=null and semesterArr.length >0">
+            AND ci.semester IN
+            <foreach collection="semesterArr" open="(" close=")" separator="," item="semester1">
+                #{semester1}
+            </foreach>
+        </if>
+    </sql>
+
+    <select id="getTargetStudent" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="map">
+        SELECT * from early_warning_academic_student WHERE 1=1
+        <include refid="Base_when_early_v2"/>
+        order by outid desc
+        <include refid="Paging"/>
+    </select>
+
+    <select id="targetStudentCount" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="long">
+        SELECT count(1) from early_warning_academic_student WHERE 1=1
+        <include refid="Base_when_early_v2"/>
+    </select>
+
+    <sql id="Base_when_early_v2">
+        <if test="sql != null and sql !='' ">
+            ${sql}
+        </if>
+        <if test="classCode != null and classCode.length > 0">
+            and class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <if test="semesterArr !=null and semesterArr.length >0 ">
+            and semester in
+            <foreach collection="semesterArr" item="semester" open="(" close=")" separator=",">
+                #{semester}
+            </foreach>
+
+        </if>
+        <if test="warnName != null and warnName != ''">
+            and ( name like '%${warnName}%' or outid like '%${warnName}%')
+        </if>
+    </sql>
+    <delete id="deleteEarlyWarn" parameterType="com.ziyun.academic.vo.AcademicParams">
+        DELETE FROM early_warn_rule2
+        <where>
+            <if test="ids != null and ids .length >0">
+                id IN
+                <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+    </delete>
+
+    <select id="getWarnParamByWarnID" resultType="string">
+        SELECT warn_param from early_warn_param WHERE warn_id= #{warnId}
+    </select>
+
+    <delete id="deleteEarlyParam" parameterType="com.ziyun.academic.vo.AcademicParams">
+        DELETE FROM early_warn_param
+        <where>
+            <if test="ids != null and ids .length >0">
+                warn_id IN
+                <foreach collection="ids" item="id" open="(" close=")" separator=",">
+                    #{id}
+                </foreach>
+            </if>
+        </where>
+    </delete>
+
+    <select id="getEarlyLevelNum" parameterType="com.ziyun.academic.vo.AcademicParams" resultType="java.util.Map">
+        SELECT
+        CASE
+        WHEN early_level =1 THEN '一般'
+        WHEN early_level =2 THEN '较严重'
+        WHEN early_level =3 THEN '严重'
+        WHEN early_level =4 THEN '特别严重'
+        END
+        early_level,count(early_level) AS num from early_warn_rule2 WHERE 1=1
+        <if test="userId != null ">
+            and user_id = #{userId}
+        </if>
+        <if test="earlyType !=null and earlyType != ''">
+            AND early_type= #{earlyType}
+        </if>
+        GROUP BY early_level
+    </select>
+
+</mapper>

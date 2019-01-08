@@ -1,0 +1,1065 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.net.mapper.A3RadacctTimeKylinMapper">
+
+    <resultMap id="ResultDataMap" type="com.ziyun.net.vo.ResultData">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="faculty_name" property="facultyName" jdbcType="VARCHAR"/>
+        <result column="major_name" property="majorName" jdbcType="VARCHAR"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+        <result column="datetime" property="datetime" jdbcType="TIMESTAMP"/>
+        <result column="datetimeStr" property="datetimeStr" jdbcType="VARCHAR"/>
+        <result column="weekindex" property="weekindex" jdbcType="INTEGER"/>
+        <result column="week" property="week" jdbcType="VARCHAR"/>
+        <result column="hour" property="hour" jdbcType="VARCHAR"/>
+        <result column="num" property="num" jdbcType="BIGINT"/>
+        <result column="sum" property="sum" jdbcType="DECIMAL"/>
+        <result column="total_duration" property="totalDuration" jdbcType="DECIMAL"/>
+        <result column="total_duration1" property="totalDuration1" jdbcType="DECIMAL"/>
+        <result column="acctstarttime" property="acctstarttime" jdbcType="DATE"/>
+        <result column="clienttype" property="clienttype" jdbcType="VARCHAR"/>
+        <result column="start_hour" property="startHour" jdbcType="INTEGER"/>
+        <result column="stop_hour" property="stopHour" jdbcType="INTEGER"/>
+        <result column="valid_days" property="validDays" jdbcType="INTEGER"/>
+        <result column="valid_days1" property="validDays1" jdbcType="INTEGER"/>
+    </resultMap>
+
+    <!-- 上网总时长分布： Chart -->
+    <select id="selectTotalDurationDistChartAndTable" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.acctstarttime,
+        SUM(b.acctsessiontime) AS total_duration,
+        COUNT(DISTINCT(b.outid)) AS num
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.acctstarttime
+        ORDER BY b.acctstarttime ASC
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网总时长分布： 个人:  Chart -->
+    <!-- 不能继承selectTotalDurationDistChartAndTable, 因为个人展示的内容与群体不同 -->
+    <select id="selectTotalDurationDistChartAndTablePersonal" resultType="java.util.Map"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT t1.acctstarttime AS "acctstarttime",
+        t1.class_code AS "class_code",
+        t1.total_duration AS "total_duration",
+        t1.num AS "num",
+        t2.personal_duration AS "personal_duration"
+        FROM
+        (
+        SELECT b.acctstarttime AS acctstarttime,
+        c.class_code AS class_code,
+        SUM(b.acctsessiontime) AS total_duration,
+        COUNT(DISTINCT(b.outid)) AS num
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <where>
+            <if test="bdate != null and bdate != '' ">
+                AND b.acctstarttime <![CDATA[ >= ]]> '${bdate}'
+            </if>
+            <!-- 结束时间 -->
+            <if test="edate != null and edate != '' ">
+                AND b.acctstarttime <![CDATA[ < ]]> '${edate}'
+            </if>
+            <!-- 班级多选-->
+            <if test="classCode != null and classCode.length > 0">
+                AND c.class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+        GROUP BY b.acctstarttime, c.class_code
+        ) t1 LEFT JOIN
+        (
+        SELECT b.acctstarttime AS acctstarttime,
+        SUM(b.acctsessiontime) AS personal_duration
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <where>
+            <!-- 开始时间 -->
+            <if test="bdate != null and bdate != '' ">
+                AND b.acctstarttime <![CDATA[ >= ]]> '${bdate}'
+            </if>
+            <!-- 结束时间 -->
+            <if test="edate != null and edate != '' ">
+                AND b.acctstarttime <![CDATA[ < ]]> '${edate}'
+            </if>
+            <!-- 学号 -->
+            <if test="outid != null and outid != ''">
+                AND b.outid = #{outid}
+            </if>
+        </where>
+        GROUP BY b.acctstarttime
+        ) t2 ON t1.acctstarttime = t2.acctstarttime
+        ORDER BY "acctstarttime", "class_code" ASC
+    </select>
+
+    <!-- 上网总时长分布: 个人: 根据outid获取class_code,可能有多个(留级情况) -->
+    <select id="selectClassCodeByOutid" resultType="java.util.Map" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT DISTINCT c.class_code
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+    </select>
+
+    <!-- 上网时长分布： 记录数 -->
+    <select id="selectDurationDistRecordNum" resultType="int" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT COUNT(1) FROM (
+        SELECT COUNT(1)
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.acctstarttime
+        ) t
+    </select>
+
+    <!-- 上网人群： Chart & Table 根据分页区分 -->
+    <select id="selectCrowdAnalysisChartAndTable" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.acctstarttime,
+        SUM(b.acctsessiontime) AS total_duration,
+        COUNT(DISTINCT(c.outid)) AS num
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.acctstarttime
+        ORDER BY b.acctstarttime ASC
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网人群： 记录数 -->
+    <select id="selectCrowdAnalysisRecordNum" resultType="int" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT count(1)
+        FROM (
+        SELECT count(1)
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.acctstarttime, c.sex
+        ) t
+    </select>
+
+    <!-- 上网时长排名: Chart & Table 根据分页区分 -->
+    <select id="selectDurationTopChartAndTable" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.NetParams">
+        select t.outid,t.name,t.total_duration,t.valid_days,t.total_duration1,t.valid_days1
+        from (
+        select
+        t1.outid,t1.name,t1.total_duration,t1.valid_days,t2.game_duration total_duration1,t2.game_days valid_days1,
+        case when (t2.game_duration / t2.game_days) is null then 0
+        else (t2.game_duration * 100 / t2.game_days) end ratio
+        from
+        (
+        SELECT b.outid, c.name,
+        SUM(b.acctsessiontime) total_duration,
+        COUNT(DISTINCT b.acctstarttime) valid_days
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.outid, c.name
+        ) t1
+        left join
+        (
+        select
+        b.outid,sum(seconds) game_duration,COUNT(DISTINCT b.record_date) game_days
+        from FLUX_TIMECOUNT_ACTION b
+        inner join OWN_ORG_STUDENT_TYPE c on b.outid=c.outid
+        <include refid="game_where_condition"/>
+        and b.serv='游戏'
+        group by b.outid
+        ) t2 on t1.outid = t2.outid
+        ) t
+        ORDER BY
+        <include refid="base_sort"/>
+        <include refid="base_order"/>
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网时长排名： 记录数 -->
+    <select id="selectDurationTopRecordNum" resultType="int" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT count(1) FROM (
+        SELECT count(1)
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.outid
+        ) t
+    </select>
+
+    <!-- 上网终端： Chart & Table 根据分页区分 (PC、移动端) -->
+    <select id="selectTerminalTypeChartAndTable" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT
+        b.clienttype,
+        COUNT(DISTINCT(c.outid)) AS num
+        FROM
+        radacct_clienttype b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        <include refid="where_condition_4_radacct_clienttype"/>
+        GROUP BY b.clienttype
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网访问内容排名: Chart & Table 根据分页区分 -->
+    <select id="selectVisitContextChartAndTable" resultMap="ResultDataMap"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT
+        b.app_name name, COUNT(b.app_name) AS num
+        FROM
+        hotspot_extract b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        AND b.app_type <![CDATA[ <> ]]> '其他'
+        GROUP BY b.app_name
+        ORDER BY num DESC
+        <include refid="base_limit"/>
+    </select>
+
+    <select id="selectVisitContextTopRecordNum" resultType="int" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT count(1) FROM (
+        SELECT count(1)
+        FROM hotspot_extract b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        AND b.app_type <![CDATA[ <> ]]> '其他'
+        GROUP BY b.app_name
+        ) t
+    </select>
+
+    <!-- 上网时段: Chart -->
+    <select id="selectPeriodChart" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT t.start_hour, t.stop_hour, (SUM(t.num) / COUNT(1)) num
+        FROM
+        (
+        SELECT
+        b.acctstarttime, b.start_hour, b.stop_hour, COUNT(DISTINCT b.outid) AS num
+        FROM
+        radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        <include refid="where_condition_4_period"/>
+        GROUP BY b.acctstarttime, b.start_hour, b.stop_hour
+        ORDER BY b.acctstarttime ASC, b.start_hour ASC, b.stop_hour ASC
+        ) t
+        GROUP BY t.start_hour, t.stop_hour
+        ORDER BY t.start_hour ASC, t.stop_hour ASC
+    </select>
+
+    <!-- 上网时段: Table -->
+    <select id="selectPeriodTable" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT t.weekday AS weekindex, (SUM(t.num) / count(1)) AS num
+        FROM
+        (
+        SELECT
+        b.acctstarttime, b.start_weekday AS weekday, count(DISTINCT b.outid) AS num
+        FROM
+        radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        <include refid="where_condition_4_period"/>
+        GROUP BY b.acctstarttime, b.start_weekday
+        ORDER BY b.acctstarttime ASC, b.start_weekday ASC
+        ) t
+        GROUP BY t.weekday
+    </select>
+
+    <!-- 上网特征 总时长分析、时长TOP、时段分析、人群分析: 获取开始结束时间-->
+    <select id="selectStartEndTime" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT MIN(b.acctstarttime) AS bdate, MAX(b.acctstarttime) AS edate
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+    </select>
+
+    <!-- 获取总人数（男 + 女） -->
+    <select id="selectTotalPeople" resultType="java.lang.Integer" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT COUNT(DISTINCT b.outid) AS totalPeople
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+    </select>
+
+    <!-- 获取总人数（男） -->
+    <select id="selectTotalPeopleMale" resultType="java.lang.Integer" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT COUNT(DISTINCT b.outid) AS totalPeopleMale
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        AND c.sex = '男'
+    </select>
+
+    <!-- 获取总人数（女） -->
+    <select id="selectTotalPeopleFemale" resultType="java.lang.Integer"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT COUNT(DISTINCT b.outid) AS totalPeopleFemale
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        AND c.sex = '女'
+    </select>
+
+    <!-- 上网内容热度下拉框: serv app类型 -->
+    <select id="selectContentHeatServAppType" resultType="java.util.Map"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.serv AS "serv",
+        b.app AS "app"
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        GROUP BY b.serv, b.app
+        ORDER BY b.serv, b.app
+    </select>
+
+    <!-- 上网内容热度下拉框: serv 根据流量倒序排名 -->
+    <select id="selectContentHeatServFlux" resultType="java.util.Map" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.serv AS "serv",
+        (SUM(b.up_flux) + SUM(b.down_flux)) AS total_flux
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        GROUP BY b.serv
+        ORDER BY total_flux desc
+    </select>
+
+    <!-- 上网内容热度: Chart 默认为大写,用双引号改成小写-->
+    <!-- v3.0.0  前提前端改好就释放-->
+    <select id="selectContentHeatChartAndTable" resultType="java.util.Map"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.serv AS "serv",
+        (SUM(b.up_flux) + SUM(b.down_flux)) AS "total_flux",
+        SUM(b.seconds) AS "seconds",
+        COUNT(DISTINCT(b.outid)) AS "people_count"
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        GROUP BY b.serv
+        ORDER BY "total_flux" DESC
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网内容热度: 点击APP弹出学生列表 -->
+    <select id="selectStudentListByApp" resultType="java.util.Map" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT
+        b.outid AS "outid",
+        c.name AS "name",
+        c.faculty_name AS "faculty_name",
+        c.major_name AS "major_name",
+        c.class_code AS "class_code"
+        FROM
+        flux_timecount_action b
+        INNER JOIN
+        own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        <include refid="where_condition_4_content_heat"/>
+        GROUP BY b.outid, c.name, c.faculty_name, c.major_name, c.class_code
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网内容热度： 点击APP弹出学生列表: 记录数 -->
+    <select id="selectAppStudentRecordNum" resultType="int" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT count(1)
+        FROM (
+        SELECT count(1)
+        FROM
+        flux_timecount_action b
+        INNER JOIN
+        own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        <include refid="where_condition_4_content_heat"/>
+        GROUP BY b.outid, c.name, c.faculty_name, c.major_name, c.class_code
+        ) t
+    </select>
+
+    <!-- 上网内容热度: get min, max of record_date -->
+    <select id="selectStartEndTime4ContentHeat" resultType="java.util.Map"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT MIN(b.record_date) AS "bdate",
+        MAX(b.record_date) AS "edate"
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        <include refid="where_condition_4_content_heat"/>
+    </select>
+
+    <!-- 上网内容热度: 总记录数 -->
+    <select id="selectContentHeatRecordNum" resultType="java.lang.Integer"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT COUNT(1)
+        FROM (
+        SELECT COUNT(1)
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        <include refid="where_condition_4_content_heat"/>
+        GROUP BY b.record_date, b.serv, b.app
+        ) t
+    </select>
+
+    <!-- 上网流量: Chart & Table 默认为大写,用双引号改成小写-->
+    <select id="selectFluxChartAndTable" resultType="java.util.Map" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.serv AS "serv",
+        SUM(b.up_flux) AS "up_flux",
+        SUM(b.down_flux) AS "down_flux",
+        (SUM(b.up_flux) + SUM(b.down_flux)) AS total_flux,
+        COUNT(DISTINCT(b.outid)) AS "people_count"
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        GROUP BY b.serv
+        ORDER BY total_flux DESC
+        <include refid="base_limit"/>
+    </select>
+
+    <!-- 上网流量: 总记录数 -->
+    <select id="selectFluxRecordNum" resultType="java.lang.Integer" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT COUNT(1)
+        FROM (
+        SELECT COUNT(1)
+        FROM flux_timecount_action b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition_4_flux"/>
+        GROUP BY b.serv
+        ) t
+    </select>
+
+    <!-- 社群概述: 上网总流量 -->
+    <select id="selectFluxTotal4OverviewCommunity" resultType="java.lang.Long">
+        SELECT
+        (SUM(b.up_flux) + SUM(b.down_flux)) AS total_flux
+        FROM
+        flux_timecount_action b
+        INNER JOIN
+        own_org_student_type c ON b.outid = c.outid
+        <include refid="flux_where_condition"/>
+    </select>
+
+    <!-- 个人画像: 上网特征: 上网总时长 -->
+    <select id="selectNetOverviewPersonal" resultType="java.lang.Integer"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT SUM(b.acctsessiontime) AS "total_duration"
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+    </select>
+
+    <!-- 社群概述: 人均上网时长 -->
+    <select id="selectAvgDuration4OverviewCommunity" resultType="java.lang.Double"
+            parameterType="com.ziyun.net.vo.NetParams">
+        SELECT ROUND(SUM(b.acctsessiontime) / COUNT(DISTINCT(b.outid)) / 3600, 2) AS avgDuration
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+    </select>
+
+    <!-- 基础条件： own_org_student_type & radacct_time -->
+    <sql id="base_where_condition">
+        <where>
+            1 = 1
+            <!-- 开始时间 -->
+            <if test="bdate != null and bdate != '' ">
+                AND b.acctstarttime <![CDATA[ >= ]]> '${bdate}'
+            </if>
+
+            <!-- 结束时间 -->
+            <if test="edate != null and edate != '' ">
+                AND b.acctstarttime <![CDATA[ < ]]> '${edate}'
+            </if>
+
+            <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+            <if test="schoolCode != null">
+                and c.school_code = #{schoolCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 院系code：：自己编码的，不是学校的编码 -->
+            <if test="facultyCode != null">
+                and c.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 专业code：：自己编码的，不是学校的编码 -->
+            <if test="majorCode != null">
+                and c.major_code = #{majorCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 班级多选-->
+            <if test="classCode != null and classCode.length > 0">
+                AND c.class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    '${item}'
+                </foreach>
+            </if>
+
+            <!-- 学号 -->
+            <if test="outid != null and outid != ''">
+                AND b.outid = #{outid}
+            </if>
+
+            <!-- 姓名 -->
+            <!--<if test="name != null and name != ''">
+                AND c.name LIKE '%${name}%'
+            </if>-->
+
+            <!-- 入学年份 -->
+            <!-- v2.1.0 -->
+            <!--			<if test="enrollmentYear != null and enrollmentYear !=''">
+                            AND c.enrollment_year = #{enrollmentYear}
+                        </if>-->
+
+            <!-- 入学年份: 多选 -->
+            <!-- v3.0.0 -->
+            <if test="yearArr != null and yearArr.length > 0">
+                AND c.enrollment_year in
+                <foreach collection="yearArr" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+
+            <!-- 学历 -->
+            <if test="education != null">
+                AND c.training_level = #{education}
+            </if>
+
+            <!-- 学籍 -->
+            <if test="eduStatus != null and eduStatus != ''">
+                AND c.edu_status LIKE '%${eduStatus}%'
+            </if>
+
+            <!-- 贫困生判断 -->
+            <if test="impoverish != null">
+                AND c.impoverish = 1
+            </if>
+
+            <!-- 性别 -->
+            <if test="sex != null">
+                AND c.sex = #{sex}
+            </if>
+
+            <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+            <if test="politicalCode != null">
+                AND c.political_code_all = #{politicalCode}
+            </if>
+
+            <!-- v2.1.0
+            &lt;!&ndash; 学期 0:寒暑假, 1-8:第几学期 &ndash;&gt;
+            <if test="termNum != null">
+                AND b.term_num = #{termNum}
+            </if>
+            &lt;!&ndash; 学籍 1-1:在籍新生, 1-2:在籍老生, 1-3:在籍留级, 1-4:在籍休学,
+                      2-5:不在籍毕业生, 2-6:不在籍肄业, 2-7:不在籍其它
+             &ndash;&gt;
+            &lt;!&ndash; &ndash;&gt;
+            &lt;!&ndash; 学期类型 1:在校期间, 2:寒暑假  选择在校期间时，如果学期字段为空，则查询term_num不为0（即在校）的数据 &ndash;&gt;
+            <if test="termtype != null and termtype == 1">
+                <if test="termNum == null">
+                    AND b.term_num != 0
+                </if>
+            </if>
+            &lt;!&ndash; 选择放假期间时，查询term_num为0的数据。（这里与学期字段有冲突，如果查某个学期的放假期间是不会有数据的） &ndash;&gt;
+            <if test="termtype != null and termtype == 2">
+                AND b.term_num = 0
+            </if>
+            &lt;!&ndash; 查询有奖学金的学生 &ndash;&gt;
+            <if test="scholarship != null">
+                AND c.scholarship = 1
+            </if>
+            &lt;!&ndash; 贫困生判断 &ndash;&gt;
+            <if test="impoverish != null">
+                AND c.impoverish = 1
+            </if>
+            &lt;!&ndash; 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 v2.1.0&ndash;&gt;
+            <if test="politicalCode != null">
+                <if test="termNum == null">
+                    AND c.political_code_all = #{politicalCode}
+                </if>
+                <if test="termNum != null and termNum != ''">
+                    AND b.political_code = #{politicalCode}
+                </if>
+            </if>-->
+            <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+            <!--<if test="politicalCode != null">
+                <if test="timeframe == null">
+                    AND c.political_code_all = #{politicalCode}
+                </if>
+                <if test='timeframe == "1"'>
+                    AND c.political_code_thisterm = #{politicalCode}
+                </if>
+                <if test='timeframe == "2"'>
+                    AND c.political_code_lastterm = #{politicalCode}
+                </if>
+                <if test='timeframe == "3"'>
+                    AND c.political_code_lastyear = #{politicalCode}
+                </if>
+            </if>-->
+
+        </where>
+    </sql>
+    <!-- 基础条件： own_org_student_type & flux_timecount_action -->
+    <sql id="game_where_condition">
+        <where>
+            1 = 1
+            <!-- 开始时间 -->
+            <if test="bdate != null and bdate != '' ">
+                AND b.record_date <![CDATA[ >= ]]> '${bdate}'
+            </if>
+
+            <!-- 结束时间 -->
+            <if test="edate != null and edate != '' ">
+                AND b.record_date <![CDATA[ < ]]> '${edate}'
+            </if>
+
+            <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+            <if test="schoolCode != null">
+                and c.school_code = #{schoolCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 院系code：：自己编码的，不是学校的编码 -->
+            <if test="facultyCode != null">
+                and c.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 专业code：：自己编码的，不是学校的编码 -->
+            <if test="majorCode != null">
+                and c.major_code = #{majorCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 班级多选-->
+            <if test="classCode != null and classCode.length > 0">
+                AND c.class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    '${item}'
+                </foreach>
+            </if>
+            <!-- 学号 -->
+            <if test="outid != null and outid != ''">
+                AND b.outid = #{outid}
+            </if>
+
+            <!-- 入学年份: 多选 -->
+            <!-- v3.0.0 -->
+            <if test="yearArr != null and yearArr.length > 0">
+                AND c.enrollment_year in
+                <foreach collection="yearArr" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    '${item}'
+                </foreach>
+            </if>
+
+            <!-- 学号: 多选 -->
+            <!-- v3.0.0 -->
+            <if test="outidArr != null and outidArr.length > 0">
+                AND c.outid in
+                <foreach collection="outidArr" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+
+            <!-- 学历 -->
+            <if test="education != null">
+                AND c.training_level = #{education}
+            </if>
+
+            <!-- 学籍 -->
+            <if test="eduStatus != null and eduStatus != ''">
+                AND c.edu_status LIKE '%${eduStatus}%'
+            </if>
+
+            <!-- 贫困生判断 -->
+            <if test="impoverish != null">
+                AND c.impoverish = 1
+            </if>
+
+            <!-- 性别 -->
+            <if test="sex != null">
+                AND c.sex = #{sex}
+            </if>
+
+            <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+            <if test="politicalCode != null">
+                AND c.political_code_all = #{politicalCode}
+            </if>
+            <!-- 多个班级放到：in中 -->
+            <if test="classCode != null and classCode.length > 0">
+                and c.class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+        </where>
+    </sql>
+
+    <!-- 基础条件： own_org_student_type & flux_timecount_action -->
+    <sql id="flux_where_condition">
+        <where>
+            1 = 1
+            <!-- 开始时间 -->
+            <if test="bdate != null and bdate != '' ">
+                AND b.record_date <![CDATA[ >= ]]> '${bdate}'
+            </if>
+
+            <!-- 结束时间 -->
+            <if test="edate != null and edate != '' ">
+                AND b.record_date <![CDATA[ < ]]> '${edate}'
+            </if>
+
+            <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+            <if test="schoolCode != null">
+                and c.school_code = #{schoolCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 院系code：：自己编码的，不是学校的编码 -->
+            <if test="facultyCode != null">
+                and c.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 专业code：：自己编码的，不是学校的编码 -->
+            <if test="majorCode != null">
+                and c.major_code = #{majorCode,jdbcType=VARCHAR}
+            </if>
+            <!-- 班级多选-->
+            <if test="classCode != null and classCode.length > 0">
+                AND c.class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    '${item}'
+                </foreach>
+            </if>
+            <!-- 学号 -->
+            <if test="outid != null and outid != ''">
+                AND b.outid = #{outid}
+            </if>
+
+            <!-- 入学年份: 多选 -->
+            <!-- v3.0.0 -->
+            <if test="yearArr != null and yearArr.length > 0">
+                AND c.enrollment_year in
+                <foreach collection="yearArr" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+
+            <!-- 学号: 多选 -->
+            <!-- v3.0.0 -->
+            <if test="outidArr != null and outidArr.length > 0">
+                AND c.outid in
+                <foreach collection="outidArr" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+
+            <!-- 学历 -->
+            <if test="education != null">
+                AND c.training_level = #{education}
+            </if>
+
+            <!-- 学籍 -->
+            <if test="eduStatus != null and eduStatus != ''">
+                AND c.edu_status LIKE '%${eduStatus}%'
+            </if>
+
+            <!-- 贫困生判断 -->
+            <if test="impoverish != null">
+                AND c.impoverish = 1
+            </if>
+
+            <!-- 性别 -->
+            <if test="sex != null">
+                AND c.sex = #{sex}
+            </if>
+
+            <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+            <if test="politicalCode != null">
+                AND c.political_code_all = #{politicalCode}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 个性化： 上网时段 -->
+    <sql id="where_condition_4_period">
+        <!-- 工作日 -->
+        <if test="weekday == 8">
+            AND b.start_weekday in (1, 2, 3, 4, 5)
+        </if>
+        <!-- 周末 -->
+        <if test="weekday == 9">
+            AND b.start_weekday in (6, 7)
+        </if>
+        <!-- 冗余条件，防止群体查询映射到个人cube -->
+        <if test="periodFlag == 1 and classCode == null and sex == null">
+            AND c.sex IN ('男', '女')
+        </if>
+    </sql>
+
+    <!-- 个性化： 上网终端 -->
+    <sql id="where_condition_4_radacct_clienttype">
+        <!-- 周几 -->
+        <if test="weekday > 0">
+            AND b.weekday = #{weekday}
+        </if>
+    </sql>
+
+    <sql id="base_limit">
+        <if test="start != null and start >= 0">
+            limit ${limit} offset ${start}
+        </if>
+    </sql>
+
+    <!-- 基础条件： own_org_student_type & flux_timecount_action -->
+    <sql id="base_where_condition_4_flux">
+        <where>
+            1 = 1
+            <!-- 开始时间 -->
+            <if test="bdate != null and bdate != '' ">
+                AND b.record_date <![CDATA[ >= ]]> '${bdate}'
+            </if>
+            <!-- 结束时间 -->
+            <if test="edate != null and edate != '' ">
+                AND b.record_date <![CDATA[ < ]]> '${edate}'
+            </if>
+
+            <!-- 班级多选-->
+            <if test="classCode != null and classCode.length > 0">
+                AND c.class_code in
+                <foreach collection="classCode" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    '${item}'
+                </foreach>
+            </if>
+
+            <!-- 学号 -->
+            <if test="outid != null and outid != ''">
+                AND b.outid = #{outid}
+            </if>
+
+            <!-- 姓名 -->
+            <!--<if test="name != null and name != ''">
+                AND c.name LIKE '%${name}%'
+            </if>-->
+
+            <!-- 入学年份 -->
+            <!-- v2.1.0 -->
+            <!--	<if test="enrollmentYear != null and enrollmentYear !=''">
+                    AND c.enrollment_year = #{enrollmentYear}
+                </if>-->
+
+            <!-- 入学年份: 多选 -->
+            <!-- v3.0.0 -->
+            <if test="yearArr != null and yearArr.length > 0">
+                AND c.enrollment_year in
+                <foreach collection="yearArr" item="item" index="index"
+                         open="(" close=")" separator=",">
+                    #{item}
+                </foreach>
+            </if>
+
+            <!-- 学历 -->
+            <if test="education != null">
+                AND c.training_level = #{education}
+            </if>
+
+            <!-- 学籍 -->
+            <if test="eduStatus != null and eduStatus != ''">
+                AND c.edu_status LIKE '%${eduStatus}%'
+            </if>
+
+            <!-- 性别 -->
+            <if test="sex != null">
+                AND c.sex = #{sex}
+            </if>
+
+            <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+            <if test="politicalCode != null">
+                AND c.political_code_all = #{politicalCode}
+            </if>
+
+            <!-- v2.1.0
+            &lt;!&ndash; 学期 0:寒暑假, 1-8:第几学期 &ndash;&gt;
+            <if test="termNum != null">
+                AND b.term_num = #{termNum}
+            </if>
+            &lt;!&ndash; 学籍 1-1:在籍新生, 1-2:在籍老生, 1-3:在籍留级, 1-4:在籍休学,
+                      2-5:不在籍毕业生, 2-6:不在籍肄业, 2-7:不在籍其它
+             &ndash;&gt;
+            &lt;!&ndash; &ndash;&gt;
+            &lt;!&ndash; 学期类型 1:在校期间, 2:寒暑假  选择在校期间时，如果学期字段为空，则查询term_num不为0（即在校）的数据 &ndash;&gt;
+            <if test="termtype != null and termtype == 1">
+                <if test="termNum == null">
+                    AND b.term_num != 0
+                </if>
+            </if>
+            &lt;!&ndash; 选择放假期间时，查询term_num为0的数据。（这里与学期字段有冲突，如果查某个学期的放假期间是不会有数据的） &ndash;&gt;
+            <if test="termtype != null and termtype == 2">
+                AND b.term_num = 0
+            </if>
+            &lt;!&ndash; 查询有奖学金的学生 &ndash;&gt;
+            <if test="scholarship != null">
+                AND c.scholarship = 1
+            </if>
+            &lt;!&ndash; 贫困生判断 &ndash;&gt;
+            <if test="impoverish != null">
+                AND c.impoverish = 1
+            </if>
+            &lt;!&ndash; 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 v2.1.0&ndash;&gt;
+            <if test="politicalCode != null">
+                <if test="termNum == null">
+                    AND c.political_code_all = #{politicalCode}
+                </if>
+                <if test="termNum != null and termNum != ''">
+                    AND b.political_code = #{politicalCode}
+                </if>
+            </if>-->
+            <!-- 政治面貌: politicalCode 1,团员 2,预备党员 3,党员 -->
+            <!--<if test="politicalCode != null">
+                <if test="timeframe == null">
+                    AND c.political_code_all = #{politicalCode}
+                </if>
+                <if test='timeframe == "1"'>
+                    AND c.political_code_thisterm = #{politicalCode}
+                </if>
+                <if test='timeframe == "2"'>
+                    AND c.political_code_lastterm = #{politicalCode}
+                </if>
+                <if test='timeframe == "3"'>
+                    AND c.political_code_lastyear = #{politicalCode}
+                </if>
+            </if>-->
+        </where>
+    </sql>
+
+    <sql id="where_condition_4_content_heat">
+        <if test="serv != null and serv != ''">
+            AND b.serv = #{serv}
+        </if>
+        <if test="apps != null and apps.length > 0">
+            AND b.app in
+            <foreach collection="apps" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+    </sql>
+
+    <sql id="base_sort">
+        <if test="sort == null or sort == 'sum'">
+            t.total_duration
+        </if>
+        <if test="sort == 'avg'">
+            t.total_duration * 100 / t.valid_days
+        </if>
+        <if test="sort == 'avg1'">
+            t.ratio
+        </if>
+    </sql>
+
+    <sql id="base_order">
+        <if test="order == 'ascending'">
+            ASC
+        </if>
+        <if test="order == 'descending'">
+            DESC
+        </if>
+        <if test="order == null">
+            DESC
+        </if>
+    </sql>
+
+    <!-- 查询上网总时长 -->
+    <select id="selectNetTime" resultMap="ResultDataMap" parameterType="com.ziyun.net.vo.NetParams">
+        SELECT b.outid,
+        SUM(b.acctsessiontime) total_duration
+        FROM radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        <include refid="base_where_condition"/>
+        GROUP BY b.outid
+    </select>
+
+    <select id="getPersonNetTime" parameterType="com.ziyun.net.vo.NetParams" resultType="java.util.Map">
+        SELECT
+        sum(total_duration) AS "total_radacct",
+        count(num) AS "total_num"
+        FROM
+        (
+        SELECT
+        b.acctstarttime,
+        SUM(b.acctsessiontime) AS total_duration,
+        COUNT(DISTINCT(b.outid)) AS num
+        FROM
+        radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        WHERE
+        b.outid = #{outid}
+        GROUP BY
+        b.acctstarttime
+        ) a
+    </select>
+
+    <!-- 个人  日均上网总时长 列表-->
+    <select id="everyDaySufferInternetTime" parameterType="com.ziyun.net.vo.NetParams"
+            resultType="java.util.Map">
+        SELECT
+        b.acctstarttime as "time",
+        sum(b.acctsessiontime) AS "total_duration"
+        FROM
+        radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        WHERE
+        b.outid = #{outid}
+        GROUP BY
+        b.acctstarttime
+        <include refid="base_limit"/>
+    </select>
+
+    <!--个人  日均上网时长总记录数-->
+    <select id="everyDaySufferInternetTimeCount" parameterType="com.ziyun.net.vo.NetParams"
+            resultType="java.lang.Integer">
+        select count(1) as "size" from (
+        SELECT
+        b.acctstarttime,
+        sum(b.acctsessiontime) AS total_duration
+        FROM
+        radacct_time b
+        INNER JOIN own_org_student_type c ON b.outid = c.outid
+        WHERE
+        b.outid = #{outid}
+        GROUP BY
+        b.acctstarttime
+        ) a
+    </select>
+
+    <select id="getNetEarlywarnList" parameterType="com.ziyun.net.vo.NetParams" resultType="String">
+        select outid as "outid",dayAvgNetTime as "dayAvgNetTime"from (
+        select
+        b.outid,round((sum(seconds)*1.0/COUNT(DISTINCT b.record_date)/3600),2) as dayAvgNetTime
+        from FLUX_TIMECOUNT_ACTION b
+        inner join OWN_ORG_STUDENT_TYPE c on b.outid=c.outid
+        <include refid="game_where_condition"/>
+        and b.serv='游戏' and c.edu_status like '%1-%'
+        group by b.outid
+        )a where a.dayAvgNetTime >= 3
+        <include refid="base_limit"/>
+    </select>
+
+    <select id="getNetEarlywarnCount" parameterType="com.ziyun.just.index.vo.NetParams" resultType="int">
+        SELECT count(1) as num FROM (
+        select outid from (
+        select
+        b.outid,round((sum(seconds)*1.0/COUNT(DISTINCT b.record_date)/3600),2) as dayAvgNetTime
+        from FLUX_TIMECOUNT_ACTION b
+        inner join OWN_ORG_STUDENT_TYPE c on b.outid=c.outid
+        <include refid="game_where_condition"/>
+        and b.serv='游戏'
+        group by b.outid
+        )a where a.dayAvgNetTime >= 3
+        )aa
+    </select>
+</mapper>

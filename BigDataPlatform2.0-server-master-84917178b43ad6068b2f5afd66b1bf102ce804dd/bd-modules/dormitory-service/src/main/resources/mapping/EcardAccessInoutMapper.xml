@@ -1,0 +1,1197 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.dormitory.mapper.EcardAccessInoutMapper">
+    <resultMap id="BaseResultMap" type="com.ziyun.dormitory.model.EcardAccessInout">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="kid" property="kid" jdbcType="BIGINT"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="ioflag" property="ioflag" jdbcType="VARCHAR"/>
+        <result column="indate" property="indate" jdbcType="TIMESTAMP"/>
+        <result column="outdate" property="outdate" jdbcType="TIMESTAMP"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+    <!-- +++++++++++业务查询 +++++++++++ -->
+
+    <resultMap id="ResultDataMap" type="com.ziyun.common.model.ResultData">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="school_code" property="schoolCode" jdbcType="VARCHAR"/>
+        <result column="faculty_code" property="facultyCode" jdbcType="VARCHAR"/>
+        <result column="major_code" property="majorCode" jdbcType="VARCHAR"/>
+        <result column="class_code" property="classCode" jdbcType="VARCHAR"/>
+        <result column="outid" property="outid" jdbcType="VARCHAR"/>
+        <result column="name" property="name" jdbcType="VARCHAR"/>
+        <result column="sex" property="sex" jdbcType="VARCHAR"/>
+        <result column="acccode" property="acccode" jdbcType="BIGINT"/>
+        <result column="dscrp" property="dscrp" jdbcType="VARCHAR"/>
+        <result column="datetime" property="datetime" jdbcType="TIMESTAMP"/>
+        <result column="datetimeStr" property="datetimeStr" jdbcType="VARCHAR"/>
+        <result column="weekindex" property="weekindex" jdbcType="INTEGER"/>
+        <result column="week" property="week" jdbcType="VARCHAR"/>
+        <result column="hour" property="hour" jdbcType="VARCHAR"/>
+        <result column="num" property="num" jdbcType="BIGINT"/>
+        <result column="sum" property="sum" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <!--  -->
+
+    <!-- 10.2.1、宿舍流量：按照天统计：进入宿舍人数 -->
+    <!-- 	<select id="dayIn" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+            SELECT DATE_FORMAT(b.OpDT, '%Y-%m-%d') as datetimeStr,
+            sum(b.sum) as sum
+            FROM access_record_inout_in_r b
+            WHERE 1=1
+            <include refid="noTime_where_List" />
+            <if test="bdate != null and bdate != '' ">
+                and b.OpDT <![CDATA[ >= ]]>#{bdate}
+            </if>
+            <if test="edate != null and edate != '' ">
+                and b.OpDT <![CDATA[ < ]]>#{edate}
+            </if>
+            GROUP BY datetimeStr
+        </select> -->
+
+
+    <!-- 10.2.2、宿舍流量：按照天统计：离开宿舍人数 -->
+    <!-- <select id="dayOut" resultMap="ResultDataMap"
+        parameterType="com.ziyun.common.model.Params">
+        SELECT DATE_FORMAT(b.OpDT, '%Y-%m-%d') as datetimeStr,
+        sum(b.sum) as sum
+        FROM access_record_inout_out_r b
+        WHERE 1=1
+        <include refid="noTime_where_List" />
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]>#{bdate}
+        </if>
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]>#{edate}
+        </if>
+        GROUP BY datetimeStr
+    </select> -->
+
+    <!-- 10.2.3、宿舍流量：按照天统计：呆在宿舍人数 -->
+    <!-- <select id="dayOn" resultMap="ResultDataMap"
+        parameterType="com.ziyun.common.model.Params">
+        SELECT DATE_FORMAT(b.indate, '%Y-%m-%d') as datetimeStr,
+        sum(b.sum) as sum
+        FROM access_record_on_dayhour_r b
+        WHERE 1=1
+        <include refid="Base_where_List" />
+        GROUP BY datetimeStr
+    </select> -->
+
+    <!-- 10.2.1、宿舍流量：按照天、小时统计：进入宿舍人数 -->
+    <select id="dayHourIn" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT b.day as datetimeStr,
+        sum(b.sum) as sum,b.hour
+        FROM access_record_inout_in_r b
+        WHERE 1=1
+        <include refid="notimetype_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]> #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]> #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        GROUP BY day,hour
+    </select>
+
+
+    <!-- 10.2.2、宿舍流量：按照天、小时统计：离开宿舍人数 -->
+    <select id="dayHourOut" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT b.day as datetimeStr,
+        sum(b.sum) as sum,b.hour
+        FROM access_record_inout_out_r b
+        WHERE 1=1
+        <include refid="notimetype_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]> #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]> #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        GROUP BY day,hour
+    </select>
+
+    <!-- 10.2.3、宿舍流量：按照天、小时统计：呆在宿舍人数 -->
+    <select id="dayHourOn" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT b.day as datetimeStr,
+        sum(b.sum) as sum,b.hour
+        FROM access_record_on_dayhour_r b
+        WHERE 1=1
+        <include refid="notype_where_List"/>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        GROUP BY day,b.hour
+    </select>
+
+    <!-- 为提高查询效率：按照每个人、周几、时间段：统计在宿舍的人数。｛用在宿舍流量：显示在宿舍人数｝ -->
+    <!-- 10.1.1、宿舍流量｛用在宿舍流量：显示在宿舍人数｝：按照周几、时间段统计在宿舍的人数：：查询最早最晚时间-->
+    <select id="onWeekHourListTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT min(b.indate) as 'bdate',max(b.indate) as 'edate'
+        FROM
+        access_record_on_dayhour_r b
+        WHERE 1=1
+        <include refid="notype_where_List"/>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+    </select>
+
+    <!-- 10.1.2、宿舍流量｛用在宿舍流量：显示在宿舍人数｝：按照周几、时间段统计在宿舍的人数-->
+    <select id="onWeekHourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT b.weekindex,b.hour, sum(b.sum) as sum
+        FROM
+        access_record_on_dayhour_r b
+        WHERE 1=1
+        <include refid="notype_where_List"/>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        GROUP BY weekindex,hour
+    </select>
+
+
+    <!-- 4.1、进宿舍时间点汇总:查询条件时间根据：开始时间：：最早时间、最晚时间 -->
+    <select id="inWeekHourListTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT min(b.indate) as 'bdate',max(b.indate) as 'edate'
+        FROM
+        access_record_inout_temp b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+    </select>
+
+    <!-- (新版)4.1、进宿舍时间点汇总:查询条件时间根据：开始时间：：最早时间、最晚时间 {这里是按照周几统计人数。所以不能直接count(DISTINCT(b.outid))，而是按照每一天统计人数，再除以出现了多少次周几}-->
+    <!-- 10.3.1、宿舍流量:按照周几、时间段：统计进入宿舍人数：：最早最晚时间 -->
+    <select id="inWeekHourListTimesNew" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT min(b.OpDT) as 'bdate',max(b.OpDT) as 'edate'
+        FROM
+        access_record_inout_in_r b
+        WHERE 1=1
+        <include refid="notimetype_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]>#{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]>#{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+    </select>
+
+    <!-- ｛社群学业分析：成绩提高分析｝4、作息规律统计: - 由于是统计进出时间点，所以不能用按照天拆开的access_record_inout表，因为多了0点的记录 -->
+    <!-- 4.1、进宿舍时间点汇总:查询条件时间根据：开始时间 -->
+    <select id="inWeekHourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT DATE_FORMAT(b.indate,'%w') AS weekindex,DATE_FORMAT(b.indate,
+        '%k') AS hour, count(DISTINCT(b.outid)) as sum
+        FROM
+        access_record_inout_temp b
+        WHERE 1=1
+        <include refid="Base_where_List"/>
+        GROUP BY weekindex,hour
+    </select>
+
+    <!-- ｛社群学业分析：成绩提高分析｝4、作息规律统计: - 由于是统计进出时间点，所以不能用按照天拆开的access_record_inout表，因为多了0点的记录 -->
+    <!-- (新版)4.1、进宿舍时间点汇总:查询条件时间根据：开始时间{这里是按照周几统计人数。所以不能直接count(DISTINCT(b.outid))，而是按照每一天统计人数，再除以出现了多少次周几} -->
+    <!-- 10.3.2、宿舍流量:按照周几、时间段：统计进入宿舍人数 -->
+    <select id="inWeekHourListNew" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT
+        b.weekindex,b.hour, sum(b.sum) as sum
+        FROM
+        access_record_inout_in_r b
+        WHERE 1=1
+        <include refid="notimetype_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]> #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]> #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        GROUP BY weekindex,hour
+    </select>
+
+
+    <!-- 4.2.0、出宿舍时间点汇总:查询条件时间根据：开始时间：：最早时间、最晚时间 -->
+    <select id="outWeekHourListTimes" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT min(b.outdate) as 'bdate',max(b.outdate) as 'edate'
+        FROM
+        access_record_inout_temp b
+        WHERE 1=1
+        <include refid="noTime_where_List"/>
+        <!-- 由于宿舍出入记录；是跨天的，所以查询出宿舍的记录，查询条件只要离开的时间 -->
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.outdate <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.outdate <![CDATA[ < ]]>
+            #{edate}
+        </if>
+    </select>
+
+
+    <!-- （新版）4.2.0、出宿舍时间点汇总:查询条件时间根据：开始时间：：最早时间、最晚时间 {这里是按照周几统计人数。所以不能直接count(DISTINCT(b.outid))，而是按照每一天统计人数，再除以出现了多少次周几}-->
+    <!-- 10.4.1、宿舍流量:按照周几、时间段：统计离开宿舍人数 ::最早最晚时间-->
+    <select id="outWeekHourListTimesNew" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT min(b.OpDT) as 'bdate',max(b.OpDT) as 'edate'
+        FROM
+        access_record_inout_out_r b
+        WHERE 1=1
+        <include refid="notimetype_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]> #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]> #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+    </select>
+
+    <!-- 4.2、出宿舍时间点汇总:查询条件时间根据：结束时间 -->
+    <select id="outWeekHourList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT DATE_FORMAT(b.outdate,'%w') AS weekindex,DATE_FORMAT(b.outdate,
+        '%k') AS hour, count(DISTINCT(b.outdate)) as sum
+        FROM
+        access_record_inout_temp b
+        WHERE 1=1
+        <include refid="noTime_where_List"/>
+        <!-- 由于宿舍出入记录；是跨天的，所以查询出宿舍的记录，查询条件只要离开的时间 -->
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.outdate <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.outdate <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        GROUP BY weekindex,hour
+    </select>
+
+    <!-- ｛社群学业分析：成绩提高分析｝4、作息规律统计: - 由于是统计进出时间点，所以不能用按照天拆开的access_record_inout表，因为多了0点的记录 -->
+    <!-- （新版）4.2、出宿舍时间点汇总:查询条件时间根据：结束时间{这里是按照周几统计人数。所以不能直接count(DISTINCT(b.outid))，而是按照每一天统计人数，再除以出现了多少次周几} -->
+    <!-- 10.4.2、宿舍流量:按照周几、时间段：统计离开宿舍人数 -->
+    <select id="outWeekHourListNew" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT
+        b.weekindex,b.hour, sum(b.sum) as sum
+        FROM
+        access_record_inout_out_r b
+        WHERE 1=1
+        <include refid="notimetype_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.OpDT <![CDATA[ >= ]]> #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.OpDT <![CDATA[ < ]]> #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null and scholarship != '' ">
+            and b.type =1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null and impoverish != '' ">
+            and b.type =2
+        </if>
+        <!-- 默认查询全部的：没有传过来查询条件 -->
+        <if test="impoverish == null and scholarship == null">
+            and b.type =0
+        </if>
+        GROUP BY weekindex,hour
+    </select>
+
+
+    <!-- ｛行为综合分析｝5.1、本月作息占比:按照天汇总{在宿舍的时间} -->
+    <select id="mouthRestList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT DATE_FORMAT(b.indate, '%Y-%m-%d') as
+        datetimeStr,sum(TIMESTAMPDIFF(SECOND,b.indate,b.outdate)) AS sum
+        , count(DISTINCT(b.outid)) as num
+        FROM
+        access_record_inout b
+        WHERE
+        TIMESTAMPDIFF(MINUTE,b.indate,b.outdate)/60 <![CDATA[ < ]]> 24
+        <include refid="Base_where_List"/>
+        GROUP BY datetimeStr
+        ORDER BY datetimeStr
+    </select>
+
+    <!-- ｛行为综合分析｝5.1、本月作息占比:按照天汇总{在宿舍的上网时间} -->
+    <select id="mouthRestNetList" resultMap="ResultDataMap"
+            parameterType="com.ziyun.common.model.Params">
+        SELECT DATE_FORMAT(g.indate, '%Y-%m-%d') as datetimeStr,sum(g.sum) AS
+        sum
+        FROM access_in_net g inner join own_org_student b
+        WHERE
+        g.outid=b.outid
+        <include refid="noTime_where_List"/>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and g.indate <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and g.indate <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        GROUP BY datetimeStr
+        ORDER BY datetimeStr
+    </select>
+
+    <select id="getLateToBedroom" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT
+        a.late,
+        (d.sum-a.late) as nolate
+        FROM
+        (
+        SELECT
+        count(DISTINCT(a.OutId)) as late
+        FROM `access_record` a
+        INNER JOIN own_org_student_type
+        b on a.OutId=b.outid
+        WHERE
+        OpDT >CONVERT (concat(LEFT (#{bdate},10),' ','23:30:00'),datetime)
+        and OpDT <![CDATA[ < ]]>  ADDDATE(CONVERT(concat(LEFT (#{bdate},10),' ','06:00:00' ),datetime),INTERVAL 1 DAY)
+        <include refid="noTime_where_List"/>) a,
+        (listDormInOutFlows
+        SELECT
+        count(*) as sum
+        FROM
+        own_org_student_type b
+        WHERE 1=1 and b.edu_status like "1-%"
+        <include refid="noTime_where_List"/>
+        ) d
+    </select>
+
+    <select id="getLateDetail" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT
+        a.name,
+        a.OutId ,
+        a.TermID,
+        if(a.ioflag=1,"出","进") as ioflag,
+        b.major_name,
+        CONVERT(a.OpDT,CHAR ) AS recordtime
+        FROM `access_record` a
+        INNER JOIN own_org_student_type
+        b ON a.OutId=b.outid
+        WHERE
+        ioflag=0
+        <include refid="noTime_where_List"/>
+        AND OpDT >CONVERT (concat(LEFT (#{bdate},10),' ','23:30:00'),datetime)
+        AND OpDT <![CDATA[ < ]]>  ADDDATE(CONVERT(concat(LEFT (#{bdate},10),' ','06:00:00' ),datetime),INTERVAL 1 DAY)
+        ORDER BY a.OpDT DESC
+        <include refid="Paging"/>
+    </select>
+
+    <select id="getLateDetailCount" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT COUNT(1) AS total FROM (
+        SELECT
+        a.name,
+        a.OutId ,
+        a.TermID,
+        if(a.ioflag=1,"出","进") as ioflag,
+        b.major_name,
+        CONVERT(a.OpDT,CHAR ) AS recordtime
+        FROM `access_record` a
+        INNER JOIN own_org_student_type
+        b ON a.OutId=b.outid
+        WHERE
+        ioflag=0
+        AND OpDT >CONVERT (concat(LEFT (#{bdate},10),' ','23:30:00'),datetime)
+        AND OpDT <![CDATA[ < ]]>  ADDDATE(CONVERT(concat(LEFT (#{bdate},10),' ','06:00:00' ),datetime),INTERVAL 1 DAY)
+        ORDER BY a.OpDT DESC ) a
+    </select>
+
+    <select id="getClockRecord" parameterType="com.ziyun.common.model.ParamsStatus" resultType="map">
+        SELECT
+        a.*,IF(b.TermName IS NULL,"",b.TermName) as TermName
+        FROM
+        (SELECT
+        a.TermID,if(a.ioflag=1,"出","进") as ioflag,CONVERT(a.OpDT,CHAR ) as
+        times,b.outid,b.name,b.major_name,b.class_code
+        FROM
+        (
+        SELECT
+        OutId,
+        TermID,
+        ioflag,
+        OpDT
+        FROM
+        access_record_inout_temp2
+        WHERE 1 = 1
+        <if test="bdate != null">AND SUBSTR(OpDT,1,10) <![CDATA[ >= ]]> #{bdate}</if>
+        <if test="edate != null">AND SUBSTR(OpDT,1,10) <![CDATA[ <= ]]> #{edate}</if>
+        <if test="hour != null">AND DATE_FORMAT(OpDT,'%H') = #{hour}</if>
+        <if test="sql != null and sql != ''">${sql}</if>
+        <if test="outid != null">
+            AND OutId = #{outid}
+        </if>
+        <if test="ioflag != null">
+            and ioflag = #{ioflag}
+        </if>
+        ) a
+        INNER JOIN own_org_student_type b ON a.OutId = b.outid
+        WHERE 1=1
+        <include refid="noTime_where_List"/>
+        ORDER BY a.OpDT DESC
+        <include refid="Paging"/>)a LEFT JOIN access_termname b
+        on a.TermID= b.TermId
+        ORDER BY a.times DESC
+    </select>
+    <select id="getClockRecordLength" parameterType="com.ziyun.common.model.ParamsStatus" resultType="int">
+        SELECT
+        count(1)
+        FROM
+        (
+        SELECT
+        OutId,
+        TermID,
+        ioflag,
+        OpDT
+        FROM
+        access_record_inout_temp2
+        WHERE 1 = 1
+        <if test="bdate != null">AND SUBSTR(OpDT,1,10) <![CDATA[ >= ]]> #{bdate}</if>
+        <if test="edate != null">AND SUBSTR(OpDT,1,10) <![CDATA[ <= ]]> #{edate}</if>
+        <if test="hour != null and hour != ''">AND DATE_FORMAT(OpDT,'%H') = #{hour}</if>
+        <if test="sql != null and sql != ''">${sql}</if>
+        <if test="outid != null">
+            AND OutId = #{outid}
+        </if>
+        <if test="ioflag != null">
+            and ioflag = #{ioflag}
+        </if>
+        ) a
+        INNER JOIN own_org_student_type b ON a.OutId = b.outid
+        WHERE 1=1
+        <include refid="noTime_where_List"/>
+    </select>
+    <select id="getLateToBedroomNum" parameterType="com.ziyun.common.model.Params" resultType="int">
+
+        SELECT
+        count(*)
+        FROM
+        (SELECT
+        DISTINCT(b.OutId)
+        FROM `access_record` b
+        WHERE
+        OpDT >CONVERT (concat(LEFT (#{bdate},10),' ','06:00:00'),datetime)
+        and OpDT <![CDATA[ < ]]>  ADDDATE(CONVERT(concat(LEFT (#{bdate},10),' ','06:00:00' ),datetime),INTERVAL 1 DAY))
+        a
+        INNER JOIN own_org_student_type b
+        ON a.OutId = b.outid
+        <include refid="noTime_where_List"/>
+
+    </select>
+
+    <select id="lateTimesBackToDorm" parameterType="com.ziyun.common.model.Params" resultType="java.lang.Integer">
+        SELECT COUNT(*) as lateTimes FROM (
+        SELECT
+        outid,b.OpDT,ioflag
+        FROM access_record_inout_temp2 b
+        WHERE 1=1
+        and (b.OpDT &gt; CONVERT (concat(LEFT (b.OpDT,10),' ','23:30:00'),datetime)
+        or b.OpDT &lt; CONVERT(concat(LEFT(b.OpDT,10),' ','06:00:00' ),datetime))
+        <include refid="student_where_List"/>
+        GROUP BY LEFT (b.OpDT,10)
+        ) r
+    </select>
+
+
+    <!-- 获取学生宿舍出入信息的年份，作为个人宿舍出入情况的年份选择条件 -->
+    <select id="getStudentDormYears" parameterType="com.ziyun.common.model.Params" resultType="java.lang.String">
+        SELECT SUBSTR(b.OpDT,1,4) as searchYear
+        FROM
+        `access_record_inout_temp2` b
+        WHERE 1=1
+        <include refid="student_where_List"/>
+        GROUP BY SUBSTR(b.OpDT,1,4)
+        ORDER BY SUBSTR(b.OpDT,1,4) DESC
+    </select>
+
+    <!-- 查询学生一年中每一天的进出宿舍次数 -->
+    <select id="getStudentInOutDormTimes" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT COUNT(*) as times, r.date
+        FROM (
+        SELECT b.outId,SUBSTR(b.OpDT,1,10) as date
+        FROM
+        `access_record_inout_temp2` b
+        WHERE 1=1
+        <include refid="student_where_List"/>
+        <if test="searchYear != null and searchYear != ''">
+            and SUBSTR(b.OpDT,1,4) = #{searchYear, jdbcType=VARCHAR}
+        </if>
+        ) r
+        GROUP BY r.date;
+    </select>
+
+    <!-- 个人画像-宿舍出入特征-周视图 -->
+    <select id="listStudentInOutDormWeekView" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT a.OpDT,a.num,
+        IFNULL(ROUND(
+        (SELECT
+        SUM(his.num)
+        FROM (SELECT
+        SUBSTR(OpDT,1,10) as OpDT,COUNT(*) as num
+        FROM access_record_inout_temp2
+        WHERE 1=1
+        <if test="outid != null">
+            and outid = #{outid,jdbcType=VARCHAR}
+        </if>
+        GROUP BY SUBSTR(OpDT,1,10)) his
+        WHERE his.OpDT <![CDATA[ >= ]]> DATE_ADD(a.OpDT,INTERVAL -7 DAY) and his.OpDT <![CDATA[ < ]]> a.OpDT)/7,1),0) as
+        avg_num
+        FROM
+        (SELECT
+        outid,SUBSTR(OpDT,1,10) as OpDT,ioflag,COUNT(*) as num
+        FROM access_record_inout_temp2 b
+        WHERE 1=1
+        <include refid="student_where_List"/>
+        GROUP BY SUBSTR(OpDT,1,10)) a
+    </select>
+
+    <!-- 个人画像-宿舍出入特征-24小时打卡 -->
+    <select id="listStudentInOutDormHours" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT
+        DATE_FORMAT(OpDT,'%H') hours,COUNT(*) as num
+        FROM `access_record_inout_temp2` b
+        WHERE 1=1
+        <include refid="student_where_List"/>
+        GROUP BY hours
+        ORDER BY COUNT(*) DESC;
+    </select>
+
+    <!-- 24小时打卡 需要对23:00-24:00这个小时进行处理，23:30以后的数据算晚归 -->
+    <select id="getInOutDormTimesHalfHour" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT
+        COUNT(CASE WHEN r.minutes &lt;= 30 THEN 1 END) as firstHalfHour,
+        COUNT(CASE WHEN r.minutes &gt; 30 THEN 1 END) as secondHalfHour
+        FROM (
+        SELECT MINUTE(b.OpDT) as minutes
+        FROM `access_record_inout_temp2` b
+        WHERE HOUR(b.OpDT)=23
+        <include refid="student_where_List"/>
+        ) r
+    </select>
+
+
+    <!-- 动态查询条件：：只有校区、班级等条件；没有时间 -->
+    <sql id="noTime_where_List">
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+
+        <if test="sex != null">and b.sex = #{sex,jdbcType=VARCHAR}</if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and b.impoverish = 1
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and b.scholarship = 1
+        </if>
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+            and b.political_code_all=#{politicalCode}
+        </if>
+        <if test="name != null and name !=''">
+            and b.name like concat("%",#{name},"%")
+        </if>
+        <if test="outid != null and outid !=''">
+            and b.outid like '${outid}%'
+        </if>
+        <if test="enrollmentYear != null">
+            and b.first_enrollment_year = #{enrollmentYear,jdbcType=VARCHAR}
+        </if>
+        <if test="yearArr !=null and yearArr.length >0 ">
+            AND b.first_enrollment_year IN
+            <foreach collection="yearArr" item="year" open="(" close=")" separator=",">
+                #{year}
+            </foreach>
+        </if>
+        <if test="eduStatus != null and eduStatus !=''">
+            and b.edu_status like "%${eduStatus}%"
+        </if>
+
+    </sql>
+
+
+    <!-- 动态查询条件：：没有贫困生、优等生；时间查询条件 -->
+    <sql id="notimetype_where_List">
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null">
+            and b.class_code = #{classCode,jdbcType=VARCHAR}
+        </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+
+        <!-- 查询的时间范围标识： 0、全部时间', 1、本学期',2、上学期',3、上学年' -->
+        <if test="politicalCode != null">
+            <if test="timeframe == null">
+                <!-- 政治面貌code:(1、团员，2、预备党员，3、党员) -->
+                and b.political_code_all=#{politicalCode}
+            </if>
+            <if test="timeframe == 1">
+                and b.political_code_thisterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 2">
+                and b.political_code_lastterm=#{politicalCode}
+            </if>
+            <if test="timeframe == 3">
+                and b.political_code_lastyear=#{politicalCode}
+            </if>
+        </if>
+        <if test="bdate !=null and bdate != '' and edate !=null and edate !=''">
+            b.OpDT <![CDATA[ >= ]]> #{bdate} AND b.OpDT <![CDATA[ <= ]]]> #{edate}
+        </if>
+    </sql>
+
+
+    <!-- 动态查询条件：：由于宿舍出入记录；是跨天的，所以时间范围只需要按照进入宿舍的时间算即可 -->
+    <sql id="notype_where_List">
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null">
+            and b.class_code = #{classCode,jdbcType=VARCHAR}
+        </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.indate <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.indate <![CDATA[ < ]]>
+            #{edate}
+        </if>
+
+    </sql>
+
+
+    <!-- 动态查询条件：：由于宿舍出入记录；是跨天的，所以时间范围只需要按照进入宿舍的时间算即可 -->
+    <sql id="Base_where_List">
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">and b.outid = #{outid,jdbcType=VARCHAR}</if>
+
+        <!-- 校区code：：'学籍类型 slg 苏理工 jkd 江科大 -->
+        <if test="schoolCode != null">
+            and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 院系code：：自己编码的，不是学校的编码 -->
+        <if test="facultyCode != null">
+            and b.faculty_code = #{facultyCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 专业code：：自己编码的，不是学校的编码 -->
+        <if test="majorCode != null">
+            and b.major_code = #{majorCode,jdbcType=VARCHAR}
+        </if>
+        <!-- 班级code：：班级只有code,没有名称 -->
+        <!-- <if test="classCode != null">
+            and b.class_code = #{classCode,jdbcType=VARCHAR}
+        </if> -->
+        <!-- 多个班级放到：in中 -->
+        <if test="classCode != null and classCode.length > 0">
+            and b.class_code in
+            <foreach collection="classCode" item="item" index="index"
+                     open="(" close=")" separator=",">
+                #{item}
+            </foreach>
+        </if>
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and b.indate <![CDATA[ >= ]]>
+            #{bdate}
+        </if>
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and b.indate <![CDATA[ < ]]>
+            #{edate}
+        </if>
+        <!-- 查询有奖学金的学生 -->
+        <if test="scholarship != null">
+            and b.outid in (SELECT outid
+            FROM edu_scholarship )
+        </if>
+        <!-- 贫困生判断 -->
+        <if test="impoverish != null">
+            and b.outid IN
+            (SELECT outid
+            FROM edu_impoverish
+            )
+        </if>
+    </sql>
+
+    <!-- 宿舍出入个人动态查询条件 -->
+    <sql id="student_where_List">
+
+        <!-- 个人查询：根据学号查询 -->
+        <if test="outid != null">
+            and b.outid = #{outid,jdbcType=VARCHAR}
+        </if>
+
+        <!-- 开始时间 -->
+        <if test="bdate != null and bdate != '' ">
+            and SUBSTR(b.OpDT,1,10) <![CDATA[ >= ]]> #{bdate}
+        </if>
+
+        <!-- 结束时间 -->
+        <if test="edate != null and edate != '' ">
+            and SUBSTR(b.OpDT,1,10) <![CDATA[ <= ]]> #{edate}
+        </if>
+
+        <!-- 进出宿舍状态 0-进  1-出  2-全部  -->
+        <if test="someCode != null and someCode != 2">
+            and b.ioflag = #{someCode, jdbcType=VARCHAR}
+        </if>
+
+    </sql>
+
+
+    <!-- <sql id="Base_where_List"> 个人查询：根据学号查询 <if test="outid != null"> and
+        b.outid = #{outid,jdbcType=VARCHAR} </if> 校区code：：'学籍类型 slg 苏理工 jkd 江科大 <if
+        test="schoolCode != null"> and b.school_Code = #{schoolCode,jdbcType=VARCHAR}
+        </if> 院系code：：自己编码的，不是学校的编码 <if test="facultyCode != null"> and b.faculty_code
+        = #{facultyCode,jdbcType=VARCHAR} </if> 专业code：：自己编码的，不是学校的编码 <if test="majorCode
+        != null"> and b.major_code = #{majorCode,jdbcType=VARCHAR} </if> 班级code：：班级只有code,没有名称
+        <if test="classCode != null"> and b.class_code = #{classCode,jdbcType=VARCHAR}
+        </if> 开始时间 <if test="bdate != null and bdate != '' "> and b.indate <![CDATA[
+        >= ]]> #{bdate} </if> 结束时间 <if test="edate != null and edate != '' "> and
+        b.outdate <![CDATA[ < ]]> #{edate} </if> </sql> -->
+
+
+    <!-- +++++++++++业务查询+++++++++++ -->
+
+
+    <sql id="Base_Column_List">
+        id, kid, outid, ioflag, indate, outdate, school_code,
+        faculty_code,
+        major_code, class_code,
+        sex
+    </sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from access_record_inout
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete from
+        access_record_inout
+        where id = #{id,jdbcType=BIGINT}
+    </delete>
+    <insert id="insert" parameterType="com.ziyun.dormitory.model.EcardAccessInout">
+        insert into
+        access_record_inout (id, kid, outid,
+        ioflag, indate, outdate,
+        school_code, faculty_code, major_code,
+        class_code, sex)
+        values
+        (#{id,jdbcType=BIGINT}, #{kid,jdbcType=BIGINT},
+        #{outid,jdbcType=VARCHAR},
+        #{ioflag,jdbcType=VARCHAR},
+        #{indate,jdbcType=TIMESTAMP}, #{outdate,jdbcType=TIMESTAMP},
+        #{schoolCode,jdbcType=VARCHAR}, #{facultyCode,jdbcType=VARCHAR},
+        #{majorCode,jdbcType=VARCHAR},
+        #{classCode,jdbcType=VARCHAR},
+        #{sex,jdbcType=VARCHAR})
+    </insert>
+    <insert id="insertSelective" parameterType="com.ziyun.dormitory.model.EcardAccessInout">
+        insert into access_record_inout
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="kid != null">
+                kid,
+            </if>
+            <if test="outid != null">
+                outid,
+            </if>
+            <if test="ioflag != null">
+                ioflag,
+            </if>
+            <if test="indate != null">
+                indate,
+            </if>
+            <if test="outdate != null">
+                outdate,
+            </if>
+            <if test="schoolCode != null">
+                school_code,
+            </if>
+            <if test="facultyCode != null">
+                faculty_code,
+            </if>
+            <if test="majorCode != null">
+                major_code,
+            </if>
+            <if test="classCode != null">
+                class_code,
+            </if>
+            <if test="sex != null">
+                sex,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=BIGINT},
+            </if>
+            <if test="kid != null">
+                #{kid,jdbcType=BIGINT},
+            </if>
+            <if test="outid != null">
+                #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="ioflag != null">
+                #{ioflag,jdbcType=VARCHAR},
+            </if>
+            <if test="indate != null">
+                #{indate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="outdate != null">
+                #{outdate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="schoolCode != null">
+                #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                #{sex,jdbcType=VARCHAR},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.ziyun.dormitory.model.EcardAccessInout">
+        update access_record_inout
+        <set>
+            <if test="kid != null">
+                kid = #{kid,jdbcType=BIGINT},
+            </if>
+            <if test="outid != null">
+                outid = #{outid,jdbcType=VARCHAR},
+            </if>
+            <if test="ioflag != null">
+                ioflag = #{ioflag,jdbcType=VARCHAR},
+            </if>
+            <if test="indate != null">
+                indate = #{indate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="outdate != null">
+                outdate = #{outdate,jdbcType=TIMESTAMP},
+            </if>
+            <if test="schoolCode != null">
+                school_code = #{schoolCode,jdbcType=VARCHAR},
+            </if>
+            <if test="facultyCode != null">
+                faculty_code = #{facultyCode,jdbcType=VARCHAR},
+            </if>
+            <if test="majorCode != null">
+                major_code = #{majorCode,jdbcType=VARCHAR},
+            </if>
+            <if test="classCode != null">
+                class_code = #{classCode,jdbcType=VARCHAR},
+            </if>
+            <if test="sex != null">
+                sex = #{sex,jdbcType=VARCHAR},
+            </if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.ziyun.dormitory.model.EcardAccessInout">
+        update
+        access_record_inout
+        set kid = #{kid,jdbcType=BIGINT},
+        outid =
+        #{outid,jdbcType=VARCHAR},
+        ioflag = #{ioflag,jdbcType=VARCHAR},
+        indate =
+        #{indate,jdbcType=TIMESTAMP},
+        outdate = #{outdate,jdbcType=TIMESTAMP},
+        school_code = #{schoolCode,jdbcType=VARCHAR},
+        faculty_code =
+        #{facultyCode,jdbcType=VARCHAR},
+        major_code =
+        #{majorCode,jdbcType=VARCHAR},
+        class_code =
+        #{classCode,jdbcType=VARCHAR},
+        sex = #{sex,jdbcType=VARCHAR}
+        where id =
+        #{id,jdbcType=BIGINT}
+    </update>
+    <select id="getRestRegular" parameterType="com.ziyun.common.model.Params" resultType="map">
+        SELECT
+        IF (DATE_FORMAT(a.OpDT, '%w') = 0,7,DATE_FORMAT(a.OpDT, '%w')) AS weekindex,
+        CONVERT (DATE_FORMAT(a.OpDT, '%k'),SIGNED) AS HOUR,
+        count(1) AS num
+        FROM
+        (
+        SELECT
+        ioflag,
+        OpDT
+        FROM
+        `access_record`
+        WHERE
+        OutId = #{outid}
+        <if test="bdate != null and bdate !=''">AND OpDT > #{bdate}</if>
+        <if test="edate != null and edate !=''">AND OpDT <![CDATA[ < ]]> #{edate}</if>
+        <if test="ioflag != null">
+            and ioflag = #{ioflag}
+        </if>
+        ) a
+        GROUP BY
+        weekindex,HOUR
+        ORDER BY
+        weekindex,HOUR
+    </select>
+    <!--分页条件 -->
+    <sql id="Paging">
+        <if test="start!=null">limit #{start
+			,jdbcType=DECIMAL},#{limit,jdbcType=DECIMAL}
+        </if>
+    </sql>
+
+    <select id="personLater" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.util.Map">
+        SELECT * FROM (
+        SELECT
+        c.TermName,
+        a.OpDT
+        FROM
+        own_org_student_type t
+        RIGHT JOIN access_record a ON a.outid = t.outid LEFT JOIN access_termname c on a.TermID= c.TermId
+        WHERE
+        t.outid=#{outid}
+        AND (
+        RIGHT (OpDT, 8) <![CDATA[ > ]]> "23:30:00"
+        OR RIGHT (OpDT, 8) <![CDATA[ < ]]> "06:00:00"
+        )
+        <if test="bdate != null and bdate !=''">AND OpDT > #{bdate}</if>
+        <if test="edate != null and edate !=''">AND OpDT <![CDATA[ < ]]> #{edate}</if>
+        AND ioflag = 0
+        ORDER BY a.OpDT DESC
+        ) a GROUP BY LEFT(a.OpDT,10) ORDER BY a.opdt desc
+        <include refid="Paging"/>
+    </select>
+    <select id="personLaterSize" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.lang.Long">
+        SELECT count(1) FROM (
+        SELECT
+        t.outid,
+        t. NAME,
+        a.OpDT
+        FROM
+        own_org_student_type t
+        RIGHT JOIN access_record a ON a.outid = t.outid LEFT JOIN access_termname c on a.TermID= c.TermId
+        WHERE
+        t.outid=#{outid}
+        AND (
+        RIGHT (OpDT, 8) <![CDATA[ > ]]> "23:30:00"
+        OR RIGHT (OpDT, 8) <![CDATA[ < ]]> "06:00:00"
+        )
+        <if test="bdate != null and bdate !=''">AND OpDT > #{bdate}</if>
+        <if test="edate != null and edate !=''">AND OpDT <![CDATA[ < ]]> #{edate}</if>
+        AND ioflag = 0
+        ) a
+    </select>
+
+    <select id="personNoComeBackSize" parameterType="com.ziyun.common.model.ParamsStatus" resultType="java.lang.Long">
+        select count(1) from (
+        select t1.OpDT,t3.TermName from maybe_late t1
+        inner join own_org_student_type t2 on t1.outid=t2.outid
+        left join access_termname t3 on t1.TermID= t3.TermId
+        where 1 = 1 and t1.opdt > t1.acctstarttime
+        <if test="outid != null and outid !=''">and t1.outid = #{outid}</if>
+        <if test="bdate != null and bdate !=''">and t1.day_id <![CDATA[ >= ]]> '${bdate}'</if>
+        <if test="edate != null and edate !=''">and t1.day_id <![CDATA[ < ]]> '${edate}'</if>
+        )
+    </select>
+</mapper>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ziyun.net.mapper.MonitorMapper">
+    <!-- 大屏首頁 實時在綫人数 -->
+    <select id="getOnLineNum" parameterType="String"
+            resultType="int">
+        select COUNT(username) as num
+        FROM
+        radacct
+        where
+        acctupdatetime &gt; DATE_FORMAT(now() ,'%Y-%c-%d')
+        and
+        username &lt;&gt; 'DHCP'
+    </select>
+
+    <!-- ipGeo 城市列表-->
+    <select id="getCityList" parameterType="String" resultType="java.util.LinkedHashMap">
+        SELECT DISTINCT
+        city_en,
+        latitude,
+        longitude,
+        city,
+        country,
+        CAST(sum(a.symbolSize) AS CHAR) as symbolSize
+        FROM
+        ipgeo a
+        GROUP BY latitude,longitude
+        ORDER BY
+        city_en
+    </select>
+
+    <!-- 流量速率数据-->
+    <select id="getRate" parameterType="String" resultMap="FireWallResultMap">
+        SELECT
+        type,
+        allflow,
+        DATE_FORMAT(date, '%H:%i') as time
+        FROM
+        firewall_flow
+        WHERE
+        date &gt; curdate() AND date &lt; now()
+        ORDER BY time
+    </select>
+
+    <!-- 防火墙流量数据 对象 -->
+    <resultMap id="FireWallResultMap" type="com.ziyun.net.entity.FireWallFlowMonitor">
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="allflow" property="allflow" jdbcType="VARCHAR"/>
+        <result column="time" property="time" jdbcType="VARCHAR"/>
+    </resultMap>
+    <!-- 在线人员数据 -->
+
+    <!-- 流量速率数据-->
+    <select id="getOnLinePersion" parameterType="String" resultType="java.util.LinkedHashMap">
+        SELECT
+        DISTINCT v.name,v.major_name,DATE_FORMAT(r.acctstarttime ,'%H:%i:%s') as startTime,v.outid
+        FROM
+        radacct r,
+        raduserrealm m,
+        edu_status v
+        WHERE
+        r.username = m.username
+        AND m.outid = v.outid
+        and r.username &lt;&gt;'DHCP'
+        and r.acctstarttime &gt; DATE_FORMAT(now() ,'%Y-%c-%d')
+        ORDER BY r.acctstarttime,v.major_name
+    </select>
+
+    <select id="getOnlineStudent" resultType="map">
+        SELECT
+        e.`name`,
+        convert(r.acctstarttime,char) as onlinetime,
+        r.nasipaddress as ip
+        FROM
+        radacct r,
+        v_student_net v,
+        edu_status e
+        WHERE
+        r.username = v.username
+        and v.outid = e.outid
+        AND r.username !='DHCP'
+        AND r.acctstarttime > CONVERT(concat(curdate(),' 07:00:00'),DATETIME )
+        and r.acctstarttime <![CDATA[<]]> CONVERT(concat(curdate(),' 23:00:00'),DATETIME )
+        ORDER BY r.acctstarttime desc
+    </select>
+</mapper>
